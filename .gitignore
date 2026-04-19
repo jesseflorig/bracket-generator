@@ -7,3 +7,7 @@ dist/
 .idea/
 pnpm-lock.yaml
 coverage/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+.claude/settings.local.json
