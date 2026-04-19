@@ -120,6 +120,78 @@ describe('buildBracket', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Shelf-cutout alignment (feature 003)
+// ---------------------------------------------------------------------------
+
+describe('buildBracket — shelf suppressed when cutout dimension is zero', () => {
+  it('produces no shelf when cutoutWidth is 0', () => {
+    const p = { ...DEFAULT_PARAMS, cutoutWidth: 0, shelfDepth: 50.8 };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    const size = new Vector3();
+    (geo.boundingBox as Box3).getSize(size);
+    expect(size.z).toBeCloseTo(p.faceplateDepth, 2);
+    geo.dispose();
+  });
+
+  it('produces no shelf when cutoutHeight is 0', () => {
+    const p = { ...DEFAULT_PARAMS, cutoutHeight: 0, shelfDepth: 50.8 };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    const size = new Vector3();
+    (geo.boundingBox as Box3).getSize(size);
+    expect(size.z).toBeCloseTo(p.faceplateDepth, 2);
+    geo.dispose();
+  });
+});
+
+describe('buildBracket — shelf geometry aligned to cutout', () => {
+  it('renders shelf when cutoutWidth, cutoutHeight, and shelfDepth are all > 0', () => {
+    const geo = buildBracket(DEFAULT_PARAMS);
+    geo.computeBoundingBox();
+    const size = new Vector3();
+    (geo.boundingBox as Box3).getSize(size);
+    const expectedZ = DEFAULT_PARAMS.faceplateDepth + DEFAULT_PARAMS.shelfDepth;
+    expect(size.z).toBeCloseTo(expectedZ, 2);
+    geo.dispose();
+  });
+
+  it('shelf X outer span equals cutoutWidth + 2 * shelfWallThickness', () => {
+    const geo = buildBracket(DEFAULT_PARAMS);
+    const positions = geo.getAttribute('position');
+    const fd = DEFAULT_PARAMS.faceplateDepth;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < positions.count; i++) {
+      if (positions.getZ(i) > fd + 0.01) {
+        minX = Math.min(minX, positions.getX(i));
+        maxX = Math.max(maxX, positions.getX(i));
+      }
+    }
+    const expectedSpan = DEFAULT_PARAMS.cutoutWidth + 2 * DEFAULT_PARAMS.shelfWallThickness;
+    expect(maxX - minX).toBeCloseTo(expectedSpan, 2);
+    geo.dispose();
+  });
+
+  it('shelf vertical extent matches cutoutHeight with bottom panel below', () => {
+    const geo = buildBracket(DEFAULT_PARAMS);
+    const positions = geo.getAttribute('position');
+    const fd = DEFAULT_PARAMS.faceplateDepth;
+    let minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < positions.count; i++) {
+      if (positions.getZ(i) > fd + 0.01) {
+        minY = Math.min(minY, positions.getY(i));
+        maxY = Math.max(maxY, positions.getY(i));
+      }
+    }
+    const ch = DEFAULT_PARAMS.cutoutHeight;
+    const t = DEFAULT_PARAMS.shelfWallThickness;
+    expect(maxY).toBeCloseTo(ch / 2, 2);
+    expect(minY).toBeCloseTo(-(ch / 2 + t), 2);
+    geo.dispose();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Schema validation
 // ---------------------------------------------------------------------------
 
