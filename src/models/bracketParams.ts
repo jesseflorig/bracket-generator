@@ -21,6 +21,11 @@ export const bracketParamsSchema = z
     holeEdgeOffset: z.number().min(1.0).max(63.5),
     // Rail slot parameter for backside mounting profile (0.125" to 0.75" range)
     railSlotWidth: z.number().min(3.175).max(19.05), // 0.125" to 0.75" in mm
+    // Hex mesh cutout on shelf walls
+    hexHoleDiameter: z.number().min(1.0).max(25.4),  // flat-to-flat, mm
+    hexHoleGap: z.number().min(0).max(25.4),           // edge-to-edge gap between holes, mm
+    hexHoleInset: z.number().min(0).max(50.8),          // inset margin from wall edges, mm
+    hexMeshFloor: z.boolean(),                           // apply hex mesh to floor panel
   })
   .superRefine((d, ctx) => {
     const fw = d.rackWidth + 2 * d.railWidth;
@@ -100,6 +105,10 @@ export const DEFAULT_PARAMS: BracketParams = {
   holeInset: 12.7,           // 0.5"
   holeEdgeOffset: 12.7,      // 0.5"
   railSlotWidth: 6.35,       // 0.25" (default)
+  hexHoleDiameter: 3.175,    // 0.125"
+  hexHoleGap: 1.5875,        // 0.0625"
+  hexHoleInset: 3.175,       // 0.125"
+  hexMeshFloor: false,
 };
 
 export interface ExportPayload {

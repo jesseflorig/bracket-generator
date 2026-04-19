@@ -114,7 +114,74 @@ function buildFaceplate(p: BracketParams): THREE.BufferGeometry {
 }
 
 // ---------------------------------------------------------------------------
-// Shelf geometry (three BoxGeometry parts merged)
+// Hex mesh helpers — flat-top honeycomb holes for shelf wall panels
+// ---------------------------------------------------------------------------
+
+export function hexHolePaths(faceW: number, faceH: number, p: BracketParams): THREE.Path[] {
+  const aw = faceW - 2 * p.hexHoleInset;
+  const ah = faceH - 2 * p.hexHoleInset;
+  if (aw <= 0 || ah <= 0 || p.hexHoleDiameter <= 0) return [];
+
+  const R = p.hexHoleDiameter / Math.sqrt(3); // circumradius
+  if (2 * R > aw || 2 * R > ah) return [];
+
+  // colStep: horizontal center-to-center between adjacent columns
+  // rowStep: vertical center-to-center within a column
+  const colStep = 1.5 * R + p.hexHoleGap;
+  const rowStep = p.hexHoleDiameter + p.hexHoleGap;
+
+  const paths: THREE.Path[] = [];
+  const maxCols = Math.ceil(aw / (2 * colStep)) + 2;
+  const maxRows = Math.ceil(ah / (2 * rowStep)) + 2;
+
+  for (let ci = -maxCols; ci <= maxCols; ci++) {
+    const cx = ci * colStep;
+    const rowOffset = Math.abs(ci) % 2 !== 0 ? rowStep / 2 : 0;
+
+    for (let ri = -maxRows; ri <= maxRows; ri++) {
+      const cy = ri * rowStep + rowOffset;
+
+      let fits = true;
+      for (let i = 0; i < 6 && fits; i++) {
+        const vx = cx + R * Math.cos((i * Math.PI) / 3);
+        const vy = cy + R * Math.sin((i * Math.PI) / 3);
+        if (vx < -aw / 2 || vx > aw / 2 || vy < -ah / 2 || vy > ah / 2) fits = false;
+      }
+      if (!fits) continue;
+
+      const path = new THREE.Path();
+      path.moveTo(cx + R, cy);
+      for (let i = 1; i < 6; i++) {
+        path.lineTo(cx + R * Math.cos((i * Math.PI) / 3), cy + R * Math.sin((i * Math.PI) / 3));
+      }
+      path.closePath();
+      paths.push(path);
+    }
+  }
+
+  return paths;
+}
+
+// Builds a faceW × faceH wall panel with hex holes, extruded by thickness along +Z.
+// Geometry is centered on the origin in XY — caller applies rotation and translation.
+function buildHexWallPanel(
+  faceW: number,
+  faceH: number,
+  thickness: number,
+  p: BracketParams
+): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-faceW / 2, -faceH / 2);
+  shape.lineTo(faceW / 2, -faceH / 2);
+  shape.lineTo(faceW / 2, faceH / 2);
+  shape.lineTo(-faceW / 2, faceH / 2);
+  shape.closePath();
+  shape.holes = hexHolePaths(faceW, faceH, p);
+  return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
+}
+
+// ---------------------------------------------------------------------------
+// Shelf geometry — side walls use hex mesh panels; floor is BoxGeometry or hex panel
 // ---------------------------------------------------------------------------
 
 function buildShelf(p: BracketParams): THREE.BufferGeometry | null {
@@ -125,25 +192,38 @@ function buildShelf(p: BracketParams): THREE.BufferGeometry | null {
   const fd = p.faceplateDepth;
   const t = p.shelfWallThickness;
   const depth = p.shelfDepth;
-
   const zCenter = fd + depth / 2;
 
   const parts: THREE.BufferGeometry[] = [];
 
-  // Bottom panel — width matches cutout inner channel; top face flush with cutout bottom edge
-  const bottom = new THREE.BoxGeometry(cw, t, depth);
-  bottom.translate(0, -(ch / 2 + t / 2), zCenter);
-  parts.push(bottom);
+  // Bottom panel — solid BoxGeometry by default; hex panel when hexMeshFloor is enabled
+  if (p.hexMeshFloor) {
+    // faceW=cw, faceH=depth; extrude by t; rotate -90° around X so face lies in XZ plane
+    const panel = buildHexWallPanel(cw, depth, t, p);
+    panel.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+    panel.applyMatrix4(new THREE.Matrix4().makeTranslation(0, -(ch / 2 + t), zCenter));
+    parts.push(panel.toNonIndexed());
+    panel.dispose();
+  } else {
+    const bottom = new THREE.BoxGeometry(cw, t, depth);
+    bottom.translate(0, -(ch / 2 + t / 2), zCenter);
+    parts.push(bottom.toNonIndexed());
+    bottom.dispose();
+  }
 
-  // Left wall — inner face flush with cutout left edge; extends from floor bottom to cutout top
-  const leftWall = new THREE.BoxGeometry(t, ch + t, depth);
-  leftWall.translate(-(cw / 2 + t / 2), -t / 2, zCenter);
-  parts.push(leftWall);
+  // Left wall — faceW=depth, faceH=ch+t; extrude by t; rotate -90° around Y
+  const leftPanel = buildHexWallPanel(depth, ch + t, t, p);
+  leftPanel.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.PI / 2));
+  leftPanel.applyMatrix4(new THREE.Matrix4().makeTranslation(-cw / 2, -t / 2, zCenter));
+  parts.push(leftPanel.toNonIndexed());
+  leftPanel.dispose();
 
-  // Right wall — inner face flush with cutout right edge; extends from floor bottom to cutout top
-  const rightWall = new THREE.BoxGeometry(t, ch + t, depth);
-  rightWall.translate(cw / 2 + t / 2, -t / 2, zCenter);
-  parts.push(rightWall);
+  // Right wall — same shape as left, mirrored translation
+  const rightPanel = buildHexWallPanel(depth, ch + t, t, p);
+  rightPanel.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.PI / 2));
+  rightPanel.applyMatrix4(new THREE.Matrix4().makeTranslation(cw / 2 + t, -t / 2, zCenter));
+  parts.push(rightPanel.toNonIndexed());
+  rightPanel.dispose();
 
   const merged = mergeGeometries(parts);
   parts.forEach((g) => g.dispose());
