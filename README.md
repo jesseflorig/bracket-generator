@@ -31,11 +31,10 @@ A 3D bracket generator tool built with React, Three.js, and TypeScript. This app
 
 ### Installation
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
+Clone the repository and install dependencies:
+```bash
+pnpm install
+```
 
 ### Development
 
