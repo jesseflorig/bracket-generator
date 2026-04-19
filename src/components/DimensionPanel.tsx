@@ -254,6 +254,47 @@ export function DimensionPanel() {
           <ReadOnlyField label="Max Inner Width" valueMm={smw} unitSystem={unitSystem} />
         </div>
 
+        {/* Hex Mesh */}
+        <div>
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Hex Mesh</p>
+          <DimensionSlider
+            label="Hole Size"
+            valueMm={params.hexHoleDiameter}
+            onChange={(v) => handleChange('hexHoleDiameter', v)}
+            minMm={1.0}
+            maxMm={25.4}
+            unitSystem={unitSystem}
+            error={errors.hexHoleDiameter}
+          />
+          <DimensionSlider
+            label="Gap"
+            valueMm={params.hexHoleGap}
+            onChange={(v) => handleChange('hexHoleGap', v)}
+            minMm={0}
+            maxMm={25.4}
+            unitSystem={unitSystem}
+            error={errors.hexHoleGap}
+          />
+          <DimensionSlider
+            label="Inset"
+            valueMm={params.hexHoleInset}
+            onChange={(v) => handleChange('hexHoleInset', v)}
+            minMm={0}
+            maxMm={50.8}
+            unitSystem={unitSystem}
+            error={errors.hexHoleInset}
+          />
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs text-zinc-300">Include Floor Panel</span>
+            <input
+              type="checkbox"
+              checked={params.hexMeshFloor}
+              onChange={(e) => handleChange('hexMeshFloor', e.target.checked)}
+              className="w-3.5 h-3.5 accent-blue-500 cursor-pointer"
+            />
+          </div>
+        </div>
+
       </div>
 
       {/* Reset */}

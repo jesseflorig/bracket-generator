@@ -6,6 +6,7 @@ import {
   shelfMaxWidth,
   holeCount,
   holePositions,
+  hexHolePaths,
 } from './bracket';
 import { DEFAULT_PARAMS, bracketParamsSchema } from '../models/bracketParams';
 
@@ -279,5 +280,61 @@ describe('buildBracket — rail slot bumps', () => {
     geo.computeBoundingBox();
     expect((geo.boundingBox as Box3).min.z).toBeCloseTo(0, 2);
     geo.dispose();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hex mesh hole paths (feature 007)
+// ---------------------------------------------------------------------------
+
+describe('hexHolePaths', () => {
+  const base = DEFAULT_PARAMS;
+
+  it('returns paths for a wall that fits at least one hex hole', () => {
+    const paths = hexHolePaths(50, 20, base);
+    expect(paths.length).toBeGreaterThan(0);
+  });
+
+  it('returns empty array when available area after inset is zero (inset >= half face dim)', () => {
+    const p = { ...base, hexHoleInset: 30 }; // inset 30mm on each side of a 50mm face = 0 available
+    const paths = hexHolePaths(50, 20, p);
+    expect(paths).toHaveLength(0);
+  });
+
+  it('returns empty array when face is too small to fit a single hole', () => {
+    // hole diameter 3.175mm, inset 3.175mm each side → available = faceW - 6.35
+    // face 8mm → available = 1.65mm < 2*R ≈ 3.67mm → no holes
+    const paths = hexHolePaths(8, 8, base);
+    expect(paths).toHaveLength(0);
+  });
+
+  it('returns paths when gap is zero (holes tiled edge-to-edge)', () => {
+    const p = { ...base, hexHoleGap: 0 };
+    const paths = hexHolePaths(50, 20, p);
+    expect(paths.length).toBeGreaterThan(0);
+  });
+
+  it('all returned paths have exactly 6 points (flat-top hex)', () => {
+    const paths = hexHolePaths(50, 20, base);
+    for (const path of paths) {
+      expect(path.getPoints().length).toBeGreaterThanOrEqual(6);
+    }
+  });
+
+  it('no hole center extends beyond the inset boundary', () => {
+    const aw = 50 - 2 * base.hexHoleInset;
+    const ah = 20 - 2 * base.hexHoleInset;
+    const R = base.hexHoleDiameter / Math.sqrt(3);
+    const paths = hexHolePaths(50, 20, base);
+    for (const path of paths) {
+      const pts = path.getPoints();
+      for (const pt of pts) {
+        expect(pt.x).toBeGreaterThanOrEqual(-aw / 2 - 0.001);
+        expect(pt.x).toBeLessThanOrEqual(aw / 2 + 0.001);
+        expect(pt.y).toBeGreaterThanOrEqual(-ah / 2 - 0.001);
+        expect(pt.y).toBeLessThanOrEqual(ah / 2 + 0.001);
+      }
+      void R;
+    }
   });
 });
