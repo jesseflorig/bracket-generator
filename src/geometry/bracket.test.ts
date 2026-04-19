@@ -125,22 +125,24 @@ describe('buildBracket', () => {
 
 describe('buildBracket — shelf suppressed when cutout dimension is zero', () => {
   it('produces no shelf when cutoutWidth is 0', () => {
+    const SLOT_DEPTH_MM = 2.032;
     const p = { ...DEFAULT_PARAMS, cutoutWidth: 0, shelfDepth: 50.8 };
     const geo = buildBracket(p);
     geo.computeBoundingBox();
     const size = new Vector3();
     (geo.boundingBox as Box3).getSize(size);
-    expect(size.z).toBeCloseTo(p.faceplateDepth, 2);
+    expect(size.z).toBeCloseTo(p.faceplateDepth + SLOT_DEPTH_MM, 2);
     geo.dispose();
   });
 
   it('produces no shelf when cutoutHeight is 0', () => {
+    const SLOT_DEPTH_MM = 2.032;
     const p = { ...DEFAULT_PARAMS, cutoutHeight: 0, shelfDepth: 50.8 };
     const geo = buildBracket(p);
     geo.computeBoundingBox();
     const size = new Vector3();
     (geo.boundingBox as Box3).getSize(size);
-    expect(size.z).toBeCloseTo(p.faceplateDepth, 2);
+    expect(size.z).toBeCloseTo(p.faceplateDepth + SLOT_DEPTH_MM, 2);
     geo.dispose();
   });
 });
@@ -160,9 +162,10 @@ describe('buildBracket — shelf geometry aligned to cutout', () => {
     const geo = buildBracket(DEFAULT_PARAMS);
     const positions = geo.getAttribute('position');
     const fd = DEFAULT_PARAMS.faceplateDepth;
+    const SLOT_DEPTH_MM = 2.032;
     let minX = Infinity, maxX = -Infinity;
     for (let i = 0; i < positions.count; i++) {
-      if (positions.getZ(i) > fd + 0.01) {
+      if (positions.getZ(i) > fd + SLOT_DEPTH_MM + 0.01) {
         minX = Math.min(minX, positions.getX(i));
         maxX = Math.max(maxX, positions.getX(i));
       }
@@ -176,9 +179,11 @@ describe('buildBracket — shelf geometry aligned to cutout', () => {
     const geo = buildBracket(DEFAULT_PARAMS);
     const positions = geo.getAttribute('position');
     const fd = DEFAULT_PARAMS.faceplateDepth;
+    // Filter past slot depth (2.032mm) to isolate shelf vertices only
+    const SLOT_DEPTH_MM = 2.032;
     let minY = Infinity, maxY = -Infinity;
     for (let i = 0; i < positions.count; i++) {
-      if (positions.getZ(i) > fd + 0.01) {
+      if (positions.getZ(i) > fd + SLOT_DEPTH_MM + 0.01) {
         minY = Math.min(minY, positions.getY(i));
         maxY = Math.max(maxY, positions.getY(i));
       }
@@ -230,5 +235,49 @@ describe('bracketParamsSchema', () => {
       cutoutHeight: 40, // larger than faceplateHeight - 2*wallThickness
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts railSlotWidth at default (6.35mm)', () => {
+    expect(bracketParamsSchema.safeParse(DEFAULT_PARAMS).success).toBe(true);
+  });
+
+  it('rejects railSlotWidth below minimum (3.175mm)', () => {
+    const result = bracketParamsSchema.safeParse({ ...DEFAULT_PARAMS, railSlotWidth: 2.0 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects railSlotWidth above maximum (19.05mm)', () => {
+    const result = bracketParamsSchema.safeParse({ ...DEFAULT_PARAMS, railSlotWidth: 20.0 });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rail slot geometry (feature 006)
+// ---------------------------------------------------------------------------
+
+describe('buildBracket — rail slot bumps', () => {
+  it('slot protrusion extends beyond faceplateDepth on the shelf side', () => {
+    const p = { ...DEFAULT_PARAMS, shelfDepth: 0, cutoutWidth: 0, cutoutHeight: 0 };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    expect((geo.boundingBox as Box3).max.z).toBeGreaterThan(p.faceplateDepth);
+    geo.dispose();
+  });
+
+  it('slot protrusion depth is 2.032mm (0.08")', () => {
+    const p = { ...DEFAULT_PARAMS, shelfDepth: 0, cutoutWidth: 0, cutoutHeight: 0 };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    expect((geo.boundingBox as Box3).max.z).toBeCloseTo(p.faceplateDepth + 2.032, 2);
+    geo.dispose();
+  });
+
+  it('Z min stays at 0 (slots do not protrude behind the faceplate)', () => {
+    const p = { ...DEFAULT_PARAMS, shelfDepth: 0, cutoutWidth: 0, cutoutHeight: 0 };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    expect((geo.boundingBox as Box3).min.z).toBeCloseTo(0, 2);
+    geo.dispose();
   });
 });

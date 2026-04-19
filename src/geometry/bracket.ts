@@ -151,28 +151,72 @@ function buildShelf(p: BracketParams): THREE.BufferGeometry | null {
 }
 
 // ---------------------------------------------------------------------------
+// Rail slot geometry — bumps above and below each hole on the backside
+// ---------------------------------------------------------------------------
+
+const SLOT_DEPTH_MM = 2.032; // 0.08"
+
+function buildRailSlots(p: BracketParams): THREE.BufferGeometry | null {
+  const positions = holePositions(p);
+  if (positions.length === 0) return null;
+
+  const fw = faceplateWidth(p);
+  const slotW = p.holeDiameter - 0.01; // FR-010: slot width = hole diameter - 0.01mm
+  const slotH = p.railSlotWidth;
+  const leftX = -(fw / 2 - p.holeInset);
+  const rightX = fw / 2 - p.holeInset;
+  const zCenter = p.faceplateDepth + SLOT_DEPTH_MM / 2; // protrude from faceplateDepth outward, same side as shelf
+
+  const parts: THREE.BufferGeometry[] = [];
+
+  for (const pos of positions) {
+    const topY = pos.y + p.holeDiameter / 2 + slotH / 2;
+    const bottomY = pos.y - p.holeDiameter / 2 - slotH / 2;
+
+    for (const hx of [leftX, rightX]) {
+      const top = new THREE.BoxGeometry(slotW, slotH, SLOT_DEPTH_MM);
+      top.translate(hx, topY, zCenter);
+      parts.push(top);
+
+      const bottom = new THREE.BoxGeometry(slotW, slotH, SLOT_DEPTH_MM);
+      bottom.translate(hx, bottomY, zCenter);
+      parts.push(bottom);
+    }
+  }
+
+  const merged = mergeGeometries(parts);
+  parts.forEach((g) => g.dispose());
+  return merged;
+}
+
+// ---------------------------------------------------------------------------
 // Main builder
 // ---------------------------------------------------------------------------
 
 export function buildBracket(p: BracketParams): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+
+  // ExtrudeGeometry must be converted to non-indexed before merging with BoxGeometry parts.
   const faceplate = buildFaceplate(p);
-  const shelf = buildShelf(p);
-
-  if (!shelf) return faceplate;
-
-  // Convert to non-indexed before merging to ensure attribute compatibility
-  // between ExtrudeGeometry (faceplate) and merged BoxGeometry (shelf).
-  const faceplateNI = faceplate.toNonIndexed();
-  const shelfNI = shelf.toNonIndexed();
+  parts.push(faceplate.toNonIndexed());
   faceplate.dispose();
-  shelf.dispose();
 
-  const merged = mergeGeometries([faceplateNI, shelfNI]);
-  faceplateNI.dispose();
-  shelfNI.dispose();
-
-  if (!merged) {
-    return buildFaceplate(p);
+  const shelf = buildShelf(p);
+  if (shelf) {
+    parts.push(shelf.toNonIndexed());
+    shelf.dispose();
   }
-  return merged;
+
+  const slots = buildRailSlots(p);
+  if (slots) {
+    parts.push(slots.toNonIndexed());
+    slots.dispose();
+  }
+
+  if (parts.length === 1) return parts[0];
+
+  const merged = mergeGeometries(parts);
+  parts.forEach((g) => g.dispose());
+
+  return merged ?? buildFaceplate(p);
 }
