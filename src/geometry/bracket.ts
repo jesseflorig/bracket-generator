@@ -118,10 +118,10 @@ function buildFaceplate(p: BracketParams): THREE.BufferGeometry {
 // ---------------------------------------------------------------------------
 
 function buildShelf(p: BracketParams): THREE.BufferGeometry | null {
-  if (p.shelfDepth <= 0) return null;
+  if (p.shelfDepth <= 0 || p.cutoutWidth <= 0 || p.cutoutHeight <= 0) return null;
 
-  const fw = p.rackWidth; // shelf exterior width = rack opening width
-  const fh = p.faceplateHeight;
+  const cw = p.cutoutWidth;
+  const ch = p.cutoutHeight;
   const fd = p.faceplateDepth;
   const t = p.shelfWallThickness;
   const depth = p.shelfDepth;
@@ -130,19 +130,19 @@ function buildShelf(p: BracketParams): THREE.BufferGeometry | null {
 
   const parts: THREE.BufferGeometry[] = [];
 
-  // Bottom panel
-  const bottom = new THREE.BoxGeometry(fw, t, depth);
-  bottom.translate(0, -(fh / 2 - t / 2), zCenter);
+  // Bottom panel — width matches cutout inner channel; top face flush with cutout bottom edge
+  const bottom = new THREE.BoxGeometry(cw, t, depth);
+  bottom.translate(0, -(ch / 2 + t / 2), zCenter);
   parts.push(bottom);
 
-  // Left wall
-  const leftWall = new THREE.BoxGeometry(t, fh, depth);
-  leftWall.translate(-(fw / 2 - t / 2), 0, zCenter);
+  // Left wall — inner face flush with cutout left edge; extends from floor bottom to cutout top
+  const leftWall = new THREE.BoxGeometry(t, ch + t, depth);
+  leftWall.translate(-(cw / 2 + t / 2), -t / 2, zCenter);
   parts.push(leftWall);
 
-  // Right wall
-  const rightWall = new THREE.BoxGeometry(t, fh, depth);
-  rightWall.translate(fw / 2 - t / 2, 0, zCenter);
+  // Right wall — inner face flush with cutout right edge; extends from floor bottom to cutout top
+  const rightWall = new THREE.BoxGeometry(t, ch + t, depth);
+  rightWall.translate(cw / 2 + t / 2, -t / 2, zCenter);
   parts.push(rightWall);
 
   const merged = mergeGeometries(parts);
