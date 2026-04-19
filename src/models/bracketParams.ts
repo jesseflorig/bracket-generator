@@ -19,6 +19,8 @@ export const bracketParamsSchema = z
     holeDiameter: z.number().min(2.0).max(25.4),
     holeInset: z.number().min(1.0).max(100.0),
     holeEdgeOffset: z.number().min(1.0).max(63.5),
+    // Rail slot parameter for backside mounting profile (0.125" to 0.75" range)
+    railSlotWidth: z.number().min(3.175).max(19.05), // 0.125" to 0.75" in mm
   })
   .superRefine((d, ctx) => {
     const fw = d.rackWidth + 2 * d.railWidth;
@@ -97,6 +99,7 @@ export const DEFAULT_PARAMS: BracketParams = {
   holeDiameter: 6.604,       // 0.26"
   holeInset: 12.7,           // 0.5"
   holeEdgeOffset: 12.7,      // 0.5"
+  railSlotWidth: 6.35,       // 0.25" (default)
 };
 
 export interface ExportPayload {

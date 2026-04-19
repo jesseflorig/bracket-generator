@@ -162,6 +162,15 @@ export function DimensionPanel() {
                 unitSystem={unitSystem}
                 error={errors.holeEdgeOffset}
               />
+              <DimensionSlider
+                label="Rail Slot Width"
+                valueMm={params.railSlotWidth}
+                onChange={(v) => handleChange('railSlotWidth', v)}
+                minMm={3.175}
+                maxMm={19.05}
+                unitSystem={unitSystem}
+                error={errors.railSlotWidth}
+              />
             </>
           )}
         </div>
