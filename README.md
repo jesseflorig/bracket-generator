@@ -14,13 +14,14 @@ A 3D bracket generator tool built with React, Three.js, and TypeScript. This app
 
 ## Technical Stack
 
-- **Frontend**: React 18, TypeScript 5.x
-- **3D Rendering**: Three.js with @react-three/fiber and @react-three/drei
-- **State Management**: Zustand
-- **Data Validation**: Zod schemas
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS
-- **Unit Conversion**: Custom mm/in conversion utilities
+- **Frontend**: [React 18](https://react.dev), [TypeScript 5.x](https://www.typescriptlang.org)
+- **3D Rendering**: [Three.js](https://threejs.org) with [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) and [Drei](https://github.com/pmndrs/drei)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs)
+- **Data Validation**: [Zod](https://zod.dev)
+- **Build Tool**: [Vite](https://vite.dev)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com)
+- **Testing**: [Vitest](https://vitest.dev)
+- **Export**: [JSZip](https://stuk.github.io/jszip) (3MF packaging)
 
 ## Getting Started
 
@@ -92,6 +93,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Built with React and Three.js
-- Uses Zustand for state management
-- Developed with TypeScript for type safety
+- 3D rendering via [Three.js](https://threejs.org) and [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
+- State management via [Zustand](https://zustand-demo.pmnd.rs)
+- Schema validation via [Zod](https://zod.dev)
