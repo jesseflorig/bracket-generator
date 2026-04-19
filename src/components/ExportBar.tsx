@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useBracketStore } from '../store/bracketStore';
-import { buildBracket } from '../geometry/bracket';
+import { buildBracket, faceplateWidth } from '../geometry/bracket';
 import { exportStl } from '../export/exportStl';
 import { export3mf } from '../export/export3mf';
 
@@ -10,10 +10,13 @@ export function ExportBar() {
 
   const makePayload = () => {
     const geometry = buildBracket(params);
+    const fw = Math.round(faceplateWidth(params));
+    const fh = Math.round(params.faceplateHeight);
+    const sd = Math.round(params.shelfDepth);
     return {
       geometry,
       params,
-      filename: `bracket-${Math.round(params.width)}x${Math.round(params.height)}x${Math.round(params.depth)}mm`,
+      filename: `bracket-${fw}x${fh}x${sd}mm`,
     };
   };
 

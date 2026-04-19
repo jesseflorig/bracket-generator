@@ -1,6 +1,22 @@
-import { BoxGeometry, BufferGeometry } from 'three';
+import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { BracketParams } from '../models/bracketParams';
+
+// ---------------------------------------------------------------------------
+// Derived values — pure functions, never stored in state
+// ---------------------------------------------------------------------------
+
+export function faceplateWidth(p: BracketParams): number {
+  return p.rackWidth + 2 * p.railWidth;
+}
+
+export function shelfMaxWidth(p: BracketParams): number {
+  return p.rackWidth - 2 * p.shelfWallThickness;
+}
+
+export function holeCount(p: BracketParams): number {
+  return Math.floor(p.faceplateHeight / 25.4);
+}
 
 export interface HolePosition {
   x: number;
@@ -8,76 +24,155 @@ export interface HolePosition {
   z: number;
 }
 
-export function buildBracket(params: BracketParams): BufferGeometry {
-  const width = Math.max(10, params.width);
-  const height = Math.max(10, params.height);
-  const depth = Math.max(10, params.depth);
-  const t = Math.min(Math.max(1, params.thickness), Math.min(width, height, depth) / 2 - 0.01);
+export function holePositions(p: BracketParams): { x: number; y: number }[] {
+  const count = holeCount(p);
+  if (count === 0) return [];
+  if (count === 1) return [{ x: 0, y: 0 }];
 
-  const parts: BufferGeometry[] = [];
-
-  if (params.bracketType === 'L') {
-    // Vertical face plate: X centered, Y from 0→height, Z from 0→t
-    const vLeg = new BoxGeometry(width, height, t);
-    vLeg.translate(0, height / 2, t / 2);
-    parts.push(vLeg);
-
-    // Horizontal arm: X centered, Y from 0→t, Z from t→depth
-    const hArm = new BoxGeometry(width, t, depth - t);
-    hArm.translate(0, t / 2, t + (depth - t) / 2);
-    parts.push(hArm);
-  } else {
-    // Front leg: Z from 0→t
-    const frontLeg = new BoxGeometry(width, height, t);
-    frontLeg.translate(0, height / 2, t / 2);
-    parts.push(frontLeg);
-
-    // Back leg: Z from depth-t→depth
-    const backLeg = new BoxGeometry(width, height, t);
-    backLeg.translate(0, height / 2, depth - t / 2);
-    parts.push(backLeg);
-
-    // Bridge: Y from 0→t, Z from t→depth-t
-    const innerDepth = Math.max(0.1, depth - 2 * t);
-    const bridge = new BoxGeometry(width, t, innerDepth);
-    bridge.translate(0, t / 2, depth / 2);
-    parts.push(bridge);
-  }
-
-  const merged = mergeGeometries(parts);
-  parts.forEach((p) => p.dispose());
-
-  if (!merged) {
-    // Fallback: plain box matching the envelope
-    const fallback = new BoxGeometry(width, height, depth);
-    fallback.translate(0, height / 2, depth / 2);
-    return fallback;
-  }
-
-  return merged;
+  const top = p.faceplateHeight / 2 - p.holeEdgeOffset;
+  const bottom = -(p.faceplateHeight / 2 - p.holeEdgeOffset);
+  return Array.from({ length: count }, (_, i) => ({
+    x: 0,
+    y: bottom + (i / (count - 1)) * (top - bottom),
+  }));
 }
 
-export function getHolePositions(params: BracketParams): HolePosition[] {
-  if (params.holeCount === 0) return [];
+// ---------------------------------------------------------------------------
+// Rounded-rectangle shape path helper
+// ---------------------------------------------------------------------------
 
-  const { holeCount, holeSpacing, holeInset, thickness, depth, bracketType } = params;
-  const positions: HolePosition[] = [];
+function roundedRect(
+  shape: THREE.Shape | THREE.Path,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  const safeR = Math.min(r, w / 2, h / 2);
+  shape.moveTo(x + safeR, y);
+  shape.lineTo(x + w - safeR, y);
+  shape.absarc(x + w - safeR, y + safeR, safeR, -Math.PI / 2, 0, false);
+  shape.lineTo(x + w, y + h - safeR);
+  shape.absarc(x + w - safeR, y + h - safeR, safeR, 0, Math.PI / 2, false);
+  shape.lineTo(x + safeR, y + h);
+  shape.absarc(x + safeR, y + h - safeR, safeR, Math.PI / 2, Math.PI, false);
+  shape.lineTo(x, y + safeR);
+  shape.absarc(x + safeR, y + safeR, safeR, Math.PI, Math.PI * 1.5, false);
+}
 
-  // Holes in front vertical leg, centered in X, spaced along Y
-  // Holes pass through the plate thickness (Z direction)
-  const zFront = thickness / 2;
+// ---------------------------------------------------------------------------
+// Faceplate geometry (Shape + ExtrudeGeometry with cutout and holes)
+// ---------------------------------------------------------------------------
 
-  for (let i = 0; i < holeCount; i++) {
-    positions.push({ x: 0, y: holeInset + i * holeSpacing, z: zFront });
+function buildFaceplate(p: BracketParams): THREE.BufferGeometry {
+  const fw = faceplateWidth(p);
+  const fh = p.faceplateHeight;
+  const fd = p.faceplateDepth;
+
+  // Outer shape: rounded rectangle, centered on origin
+  const shape = new THREE.Shape();
+  roundedRect(shape, -fw / 2, -fh / 2, fw, fh, p.cornerRadius);
+
+  // Cutout hole (rectangular, centered)
+  if (p.cutoutWidth > 0 && p.cutoutHeight > 0) {
+    const cutout = new THREE.Path();
+    cutout.moveTo(-p.cutoutWidth / 2, -p.cutoutHeight / 2);
+    cutout.lineTo(p.cutoutWidth / 2, -p.cutoutHeight / 2);
+    cutout.lineTo(p.cutoutWidth / 2, p.cutoutHeight / 2);
+    cutout.lineTo(-p.cutoutWidth / 2, p.cutoutHeight / 2);
+    cutout.closePath();
+    shape.holes.push(cutout);
   }
 
-  // U-bracket gets matching holes in the back leg too
-  if (bracketType === 'U') {
-    const zBack = depth - thickness / 2;
-    for (let i = 0; i < holeCount; i++) {
-      positions.push({ x: 0, y: holeInset + i * holeSpacing, z: zBack });
+  // Mounting holes — one column per side
+  const count = holeCount(p);
+  const positions = holePositions(p);
+  const holeR = p.holeDiameter / 2;
+  const leftX = -(fw / 2 - p.holeInset);
+  const rightX = fw / 2 - p.holeInset;
+
+  for (const pos of positions) {
+    for (const hx of [leftX, rightX]) {
+      const holePath = new THREE.Path();
+      holePath.absarc(hx, pos.y, holeR, 0, Math.PI * 2, false);
+      shape.holes.push(holePath);
     }
   }
 
-  return positions;
+  // Suppress unused variable warning — count is used via positions
+  void count;
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: fd,
+    bevelEnabled: false,
+  });
+  // ExtrudeGeometry extrudes along +Z; translate so front face sits at Z=0
+  geo.translate(0, 0, 0);
+
+  return geo;
+}
+
+// ---------------------------------------------------------------------------
+// Shelf geometry (three BoxGeometry parts merged)
+// ---------------------------------------------------------------------------
+
+function buildShelf(p: BracketParams): THREE.BufferGeometry | null {
+  if (p.shelfDepth <= 0) return null;
+
+  const fw = p.rackWidth; // shelf exterior width = rack opening width
+  const fh = p.faceplateHeight;
+  const fd = p.faceplateDepth;
+  const t = p.shelfWallThickness;
+  const depth = p.shelfDepth;
+
+  const zCenter = fd + depth / 2;
+
+  const parts: THREE.BufferGeometry[] = [];
+
+  // Bottom panel
+  const bottom = new THREE.BoxGeometry(fw, t, depth);
+  bottom.translate(0, -(fh / 2 - t / 2), zCenter);
+  parts.push(bottom);
+
+  // Left wall
+  const leftWall = new THREE.BoxGeometry(t, fh, depth);
+  leftWall.translate(-(fw / 2 - t / 2), 0, zCenter);
+  parts.push(leftWall);
+
+  // Right wall
+  const rightWall = new THREE.BoxGeometry(t, fh, depth);
+  rightWall.translate(fw / 2 - t / 2, 0, zCenter);
+  parts.push(rightWall);
+
+  const merged = mergeGeometries(parts);
+  parts.forEach((g) => g.dispose());
+  return merged;
+}
+
+// ---------------------------------------------------------------------------
+// Main builder
+// ---------------------------------------------------------------------------
+
+export function buildBracket(p: BracketParams): THREE.BufferGeometry {
+  const faceplate = buildFaceplate(p);
+  const shelf = buildShelf(p);
+
+  if (!shelf) return faceplate;
+
+  // Convert to non-indexed before merging to ensure attribute compatibility
+  // between ExtrudeGeometry (faceplate) and merged BoxGeometry (shelf).
+  const faceplateNI = faceplate.toNonIndexed();
+  const shelfNI = shelf.toNonIndexed();
+  faceplate.dispose();
+  shelf.dispose();
+
+  const merged = mergeGeometries([faceplateNI, shelfNI]);
+  faceplateNI.dispose();
+  shelfNI.dispose();
+
+  if (!merged) {
+    return buildFaceplate(p);
+  }
+  return merged;
 }
