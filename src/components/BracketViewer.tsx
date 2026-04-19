@@ -3,13 +3,12 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import * as THREE from 'three';
 import { useBracketStore } from '../store/bracketStore';
-import { buildBracket, faceplateWidth, holePositions } from '../geometry/bracket';
+import { buildBracket, faceplateWidth } from '../geometry/bracket';
 
 function BracketMesh() {
   const params = useBracketStore((s) => s.params);
 
   const geometry = useMemo(() => buildBracket(params), [params]);
-  const positions = useMemo(() => holePositions(params), [params]);
 
   useEffect(() => {
     return () => {
@@ -17,32 +16,11 @@ function BracketMesh() {
     };
   }, [geometry]);
 
-  const fw = faceplateWidth(params);
-  const holeR = params.holeDiameter / 2;
-  const leftX = -(fw / 2 - params.holeInset);
-  const rightX = fw / 2 - params.holeInset;
-  const holeCylinderZ = params.faceplateDepth / 2;
-
   return (
     <group>
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.3} />
       </mesh>
-
-      {positions.map((pos, i) =>
-        [leftX, rightX].map((hx, side) => (
-          <mesh
-            key={`${i}-${side}`}
-            position={[hx, pos.y, holeCylinderZ]}
-            rotation={[Math.PI / 2, 0, 0]}
-          >
-            <cylinderGeometry
-              args={[holeR, holeR, params.faceplateDepth + 2, 24]}
-            />
-            <meshStandardMaterial color="#1e293b" metalness={0} roughness={1} />
-          </mesh>
-        ))
-      )}
     </group>
   );
 }
