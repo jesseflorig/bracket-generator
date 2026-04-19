@@ -1,8 +1,13 @@
-import { useState } from 'react';
 import { useBracketStore } from '../store/bracketStore';
 import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
+import {
+  faceplateWidth,
+  shelfMaxWidth,
+  holeCount,
+} from '../geometry/bracket';
 import { DimensionSlider } from './DimensionSlider';
 import { UnitToggle } from './UnitToggle';
+import { fromMm } from '../units/convert';
 
 type Errors = Partial<Record<keyof BracketParams, string>>;
 
@@ -17,21 +22,43 @@ function flattenZodErrors(params: Partial<BracketParams>): Errors {
   return out;
 }
 
+function ReadOnlyField({
+  label,
+  valueMm,
+  unitSystem,
+}: {
+  label: string;
+  valueMm: number;
+  unitSystem: 'mm' | 'in';
+}) {
+  const displayed = fromMm(valueMm, unitSystem).toFixed(3);
+  const unit = unitSystem === 'in' ? '"' : 'mm';
+  return (
+    <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
+      <span>{label}</span>
+      <span className="font-mono text-zinc-400">
+        {displayed} {unit} <span className="text-zinc-600">(derived)</span>
+      </span>
+    </div>
+  );
+}
+
 export function DimensionPanel() {
   const { params, setParam, unitSystem, setUnitSystem, resetToDefaults } =
     useBracketStore();
-  const [errors, setErrors] = useState<Errors>({});
 
   const handleChange = <K extends keyof BracketParams>(
     key: K,
     valueMm: BracketParams[K]
   ) => {
-    const candidate = { ...params, [key]: valueMm };
-    const errs = flattenZodErrors(candidate);
-    setErrors(errs);
-    // Always update store for immediate 3D feedback; errors shown as warnings
     setParam(key, valueMm);
   };
+
+  const errors = flattenZodErrors(params);
+
+  const fw = faceplateWidth(params);
+  const smw = shelfMaxWidth(params);
+  const count = holeCount(params);
 
   return (
     <div className="flex flex-col h-full">
@@ -40,130 +67,162 @@ export function DimensionPanel() {
         <h1 className="text-base font-semibold text-zinc-100 tracking-tight">
           Bracket Generator
         </h1>
-        <p className="text-xs text-zinc-500 mt-0.5">
-          Server rack mount bracket
-        </p>
+        <p className="text-xs text-zinc-500 mt-0.5">Server rack mount bracket</p>
       </div>
 
       {/* Scrollable controls */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-5">
 
-        {/* Unit system */}
+        {/* Units */}
         <div>
           <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Units</p>
           <UnitToggle value={unitSystem} onChange={setUnitSystem} />
         </div>
 
-        {/* Bracket type */}
+        {/* Rack */}
         <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Type</p>
-          <div className="flex rounded overflow-hidden border border-zinc-700 text-sm">
-            {(['L', 'U'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => handleChange('bracketType', t)}
-                className={`flex-1 px-3 py-1 text-center transition-colors ${
-                  params.bracketType === t
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                {t}-Bracket
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Shape */}
-        <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Shape</p>
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Rack</p>
           <DimensionSlider
-            label="Width"
-            valueMm={params.width}
-            onChange={(v) => handleChange('width', v)}
-            minMm={10}
-            maxMm={500}
+            label="Rack Width"
+            valueMm={params.rackWidth}
+            onChange={(v) => handleChange('rackWidth', v)}
+            minMm={50.8}
+            maxMm={609.6}
             unitSystem={unitSystem}
-            error={errors.width}
+            error={errors.rackWidth}
           />
           <DimensionSlider
-            label="Height"
-            valueMm={params.height}
-            onChange={(v) => handleChange('height', v)}
-            minMm={10}
-            maxMm={500}
+            label="Rail Width"
+            valueMm={params.railWidth}
+            onChange={(v) => handleChange('railWidth', v)}
+            minMm={6.35}
+            maxMm={50.8}
             unitSystem={unitSystem}
-            error={errors.height}
+            error={errors.railWidth}
+          />
+          <ReadOnlyField label="Faceplate Width" valueMm={fw} unitSystem={unitSystem} />
+        </div>
+
+        {/* Faceplate */}
+        <div>
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Faceplate</p>
+          <DimensionSlider
+            label="Height"
+            valueMm={params.faceplateHeight}
+            onChange={(v) => handleChange('faceplateHeight', v)}
+            minMm={25.4}
+            maxMm={127.0}
+            unitSystem={unitSystem}
+            error={errors.faceplateHeight}
           />
           <DimensionSlider
             label="Depth"
-            valueMm={params.depth}
-            onChange={(v) => handleChange('depth', v)}
-            minMm={10}
-            maxMm={300}
+            valueMm={params.faceplateDepth}
+            onChange={(v) => handleChange('faceplateDepth', v)}
+            minMm={1.5875}
+            maxMm={6.35}
             unitSystem={unitSystem}
-            error={errors.depth}
+            error={errors.faceplateDepth}
           />
           <DimensionSlider
-            label="Thickness"
-            valueMm={params.thickness}
-            onChange={(v) => handleChange('thickness', v)}
-            minMm={1}
-            maxMm={20}
+            label="Corner Radius"
+            valueMm={params.cornerRadius}
+            onChange={(v) => handleChange('cornerRadius', v)}
+            minMm={0}
+            maxMm={15}
             unitSystem={unitSystem}
-            error={errors.thickness}
+            error={errors.cornerRadius}
           />
         </div>
 
-        {/* Holes */}
+        {/* Mounting Holes */}
         <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Holes</p>
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Mounting Holes</p>
+          <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
+            <span>Count (per side)</span>
+            <span className="font-mono text-zinc-400">
+              {count} <span className="text-zinc-600">(derived)</span>
+            </span>
+          </div>
           <DimensionSlider
-            label="Count"
-            valueMm={params.holeCount}
-            onChange={(v) => handleChange('holeCount', v)}
-            minMm={0}
-            maxMm={8}
-            isUnitless
-            isInteger
+            label="Diameter"
+            valueMm={params.holeDiameter}
+            onChange={(v) => handleChange('holeDiameter', v)}
+            minMm={2.0}
+            maxMm={25.4}
             unitSystem={unitSystem}
-            error={errors.holeCount}
+            error={errors.holeDiameter}
           />
-          {params.holeCount > 0 && (
-            <>
-              <DimensionSlider
-                label="Diameter"
-                valueMm={params.holeDiameter}
-                onChange={(v) => handleChange('holeDiameter', v)}
-                minMm={2}
-                maxMm={20}
-                unitSystem={unitSystem}
-                error={errors.holeDiameter}
-              />
-              <DimensionSlider
-                label="Spacing"
-                valueMm={params.holeSpacing}
-                onChange={(v) => handleChange('holeSpacing', v)}
-                minMm={5}
-                maxMm={200}
-                unitSystem={unitSystem}
-                error={errors.holeSpacing}
-              />
-              <DimensionSlider
-                label="Inset"
-                valueMm={params.holeInset}
-                onChange={(v) => handleChange('holeInset', v)}
-                minMm={3}
-                maxMm={100}
-                unitSystem={unitSystem}
-                error={errors.holeInset}
-              />
-            </>
-          )}
+          <DimensionSlider
+            label="Side Inset"
+            valueMm={params.holeInset}
+            onChange={(v) => handleChange('holeInset', v)}
+            minMm={1.0}
+            maxMm={100.0}
+            unitSystem={unitSystem}
+            error={errors.holeInset}
+          />
+          <DimensionSlider
+            label="Edge Offset"
+            valueMm={params.holeEdgeOffset}
+            onChange={(v) => handleChange('holeEdgeOffset', v)}
+            minMm={1.0}
+            maxMm={63.5}
+            unitSystem={unitSystem}
+            error={errors.holeEdgeOffset}
+          />
         </div>
+
+        {/* Shelf Cutout */}
+        <div>
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Cutout</p>
+          <DimensionSlider
+            label="Width"
+            valueMm={params.cutoutWidth}
+            onChange={(v) => handleChange('cutoutWidth', v)}
+            minMm={0}
+            maxMm={500}
+            unitSystem={unitSystem}
+            error={errors.cutoutWidth}
+          />
+          <DimensionSlider
+            label="Height"
+            valueMm={params.cutoutHeight}
+            onChange={(v) => handleChange('cutoutHeight', v)}
+            minMm={0}
+            maxMm={200}
+            unitSystem={unitSystem}
+            error={errors.cutoutHeight}
+          />
+        </div>
+
+        {/* Shelf */}
+        <div>
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Shelf</p>
+          <DimensionSlider
+            label="Depth"
+            valueMm={params.shelfDepth}
+            onChange={(v) => handleChange('shelfDepth', v)}
+            minMm={0}
+            maxMm={304.8}
+            unitSystem={unitSystem}
+            error={errors.shelfDepth}
+          />
+          <DimensionSlider
+            label="Wall Thickness"
+            valueMm={params.shelfWallThickness}
+            onChange={(v) => handleChange('shelfWallThickness', v)}
+            minMm={1.0}
+            maxMm={6.35}
+            unitSystem={unitSystem}
+            error={errors.shelfWallThickness}
+          />
+          <ReadOnlyField label="Max Inner Width" valueMm={smw} unitSystem={unitSystem} />
+        </div>
+
       </div>
 
-      {/* Reset button */}
+      {/* Reset */}
       <div className="px-4 py-2 border-t border-zinc-800">
         <button
           onClick={resetToDefaults}

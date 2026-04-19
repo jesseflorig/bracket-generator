@@ -3,13 +3,13 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import * as THREE from 'three';
 import { useBracketStore } from '../store/bracketStore';
-import { buildBracket, getHolePositions } from '../geometry/bracket';
+import { buildBracket, faceplateWidth, holePositions } from '../geometry/bracket';
 
 function BracketMesh() {
   const params = useBracketStore((s) => s.params);
 
   const geometry = useMemo(() => buildBracket(params), [params]);
-  const holePositions = useMemo(() => getHolePositions(params), [params]);
+  const positions = useMemo(() => holePositions(params), [params]);
 
   useEffect(() => {
     return () => {
@@ -17,52 +17,47 @@ function BracketMesh() {
     };
   }, [geometry]);
 
+  const fw = faceplateWidth(params);
+  const holeR = params.holeDiameter / 2;
+  const leftX = -(fw / 2 - params.holeInset);
+  const rightX = fw / 2 - params.holeInset;
+  const holeCylinderZ = params.faceplateDepth / 2;
+
   return (
     <group>
       <mesh geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial
-          color="#94a3b8"
-          metalness={0.6}
-          roughness={0.3}
-        />
+        <meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.3} />
       </mesh>
 
-      {holePositions.map((pos, i) => (
-        <mesh
-          key={i}
-          position={[pos.x, pos.y, pos.z]}
-          rotation={[Math.PI / 2, 0, 0]}
-        >
-          <cylinderGeometry
-            args={[
-              params.holeDiameter / 2,
-              params.holeDiameter / 2,
-              params.thickness + 2,
-              24,
-            ]}
-          />
-          <meshStandardMaterial
-            color="#1e293b"
-            metalness={0}
-            roughness={1}
-          />
-        </mesh>
-      ))}
+      {positions.map((pos, i) =>
+        [leftX, rightX].map((hx, side) => (
+          <mesh
+            key={`${i}-${side}`}
+            position={[hx, pos.y, holeCylinderZ]}
+            rotation={[Math.PI / 2, 0, 0]}
+          >
+            <cylinderGeometry
+              args={[holeR, holeR, params.faceplateDepth + 2, 24]}
+            />
+            <meshStandardMaterial color="#1e293b" metalness={0} roughness={1} />
+          </mesh>
+        ))
+      )}
     </group>
   );
 }
 
 export function BracketViewer() {
   const params = useBracketStore((s) => s.params);
-  const camY = params.height / 2;
-  const camZ = params.depth / 2;
+  const fw = faceplateWidth(params);
+  const camDist = Math.max(fw, 100) * 1.8;
 
   return (
     <div className="w-full h-full">
       <Canvas
         shadows
         camera={{
-          position: [params.width * 2, camY + 60, camZ + 140],
+          position: [camDist * 0.6, camDist * 0.4, camDist],
           fov: 45,
           near: 0.1,
           far: 10000,
@@ -81,24 +76,20 @@ export function BracketViewer() {
 
         <BracketMesh />
 
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0, 0]}
-          receiveShadow
-        >
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -params.faceplateHeight / 2 - 1, 0]} receiveShadow>
           <planeGeometry args={[600, 600]} />
           <meshStandardMaterial color="#1e293b" roughness={1} />
         </mesh>
 
         <gridHelper
           args={[400, 40, '#1e293b', '#1e293b']}
-          position={[0, 0.1, 0]}
+          position={[0, -params.faceplateHeight / 2 - 0.9, 0]}
         />
 
         <OrbitControls
           makeDefault
-          target={new THREE.Vector3(0, params.height / 2, params.depth / 2)}
-          minDistance={20}
+          target={new THREE.Vector3(0, 0, params.shelfDepth / 2)}
+          minDistance={10}
           maxDistance={2000}
         />
 
