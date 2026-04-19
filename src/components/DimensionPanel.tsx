@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useBracketStore } from '../store/bracketStore';
 import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
 import {
@@ -47,6 +48,15 @@ export function DimensionPanel() {
   const { params, setParam, unitSystem, setUnitSystem, resetToDefaults } =
     useBracketStore();
 
+  const [rackCollapsed, setRackCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem('ui-rack-profile-collapsed');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ui-rack-profile-collapsed', String(rackCollapsed));
+  }, [rackCollapsed]);
+
   const handleChange = <K extends keyof BracketParams>(
     key: K,
     valueMm: BracketParams[K]
@@ -79,28 +89,81 @@ export function DimensionPanel() {
           <UnitToggle value={unitSystem} onChange={setUnitSystem} />
         </div>
 
-        {/* Rack */}
+        {/* Rack Profile — collapsible */}
         <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Rack</p>
-          <DimensionSlider
-            label="Rack Width"
-            valueMm={params.rackWidth}
-            onChange={(v) => handleChange('rackWidth', v)}
-            minMm={50.8}
-            maxMm={609.6}
-            unitSystem={unitSystem}
-            error={errors.rackWidth}
-          />
-          <DimensionSlider
-            label="Rail Width"
-            valueMm={params.railWidth}
-            onChange={(v) => handleChange('railWidth', v)}
-            minMm={6.35}
-            maxMm={50.8}
-            unitSystem={unitSystem}
-            error={errors.railWidth}
-          />
+          <button
+            onClick={() => setRackCollapsed((c) => !c)}
+            className="flex items-center justify-between w-full text-xs text-zinc-500 uppercase tracking-wide mb-2 hover:text-zinc-300 transition-colors"
+          >
+            <span>Rack Profile</span>
+            <svg
+              className={`w-3 h-3 transition-transform duration-150 ${rackCollapsed ? '-rotate-90' : ''}`}
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="2,4 6,8 10,4" />
+            </svg>
+          </button>
           <ReadOnlyField label="Faceplate Width" valueMm={fw} unitSystem={unitSystem} />
+          {!rackCollapsed && (
+            <>
+              <DimensionSlider
+                label="Rack Width"
+                valueMm={params.rackWidth}
+                onChange={(v) => handleChange('rackWidth', v)}
+                minMm={50.8}
+                maxMm={609.6}
+                unitSystem={unitSystem}
+                error={errors.rackWidth}
+              />
+              <DimensionSlider
+                label="Rail Width"
+                valueMm={params.railWidth}
+                onChange={(v) => handleChange('railWidth', v)}
+                minMm={6.35}
+                maxMm={50.8}
+                unitSystem={unitSystem}
+                error={errors.railWidth}
+              />
+              <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
+                <span>Holes (per side)</span>
+                <span className="font-mono text-zinc-400">
+                  {count} <span className="text-zinc-600">(derived)</span>
+                </span>
+              </div>
+              <DimensionSlider
+                label="Hole Diameter"
+                valueMm={params.holeDiameter}
+                onChange={(v) => handleChange('holeDiameter', v)}
+                minMm={2.0}
+                maxMm={25.4}
+                unitSystem={unitSystem}
+                error={errors.holeDiameter}
+              />
+              <DimensionSlider
+                label="Hole Inset"
+                valueMm={params.holeInset}
+                onChange={(v) => handleChange('holeInset', v)}
+                minMm={1.0}
+                maxMm={100.0}
+                unitSystem={unitSystem}
+                error={errors.holeInset}
+              />
+              <DimensionSlider
+                label="Hole Edge Offset"
+                valueMm={params.holeEdgeOffset}
+                onChange={(v) => handleChange('holeEdgeOffset', v)}
+                minMm={1.0}
+                maxMm={63.5}
+                unitSystem={unitSystem}
+                error={errors.holeEdgeOffset}
+              />
+            </>
+          )}
         </div>
 
         {/* Faceplate */}
@@ -135,45 +198,7 @@ export function DimensionPanel() {
           />
         </div>
 
-        {/* Mounting Holes */}
-        <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Mounting Holes</p>
-          <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
-            <span>Count (per side)</span>
-            <span className="font-mono text-zinc-400">
-              {count} <span className="text-zinc-600">(derived)</span>
-            </span>
-          </div>
-          <DimensionSlider
-            label="Diameter"
-            valueMm={params.holeDiameter}
-            onChange={(v) => handleChange('holeDiameter', v)}
-            minMm={2.0}
-            maxMm={25.4}
-            unitSystem={unitSystem}
-            error={errors.holeDiameter}
-          />
-          <DimensionSlider
-            label="Side Inset"
-            valueMm={params.holeInset}
-            onChange={(v) => handleChange('holeInset', v)}
-            minMm={1.0}
-            maxMm={100.0}
-            unitSystem={unitSystem}
-            error={errors.holeInset}
-          />
-          <DimensionSlider
-            label="Edge Offset"
-            valueMm={params.holeEdgeOffset}
-            onChange={(v) => handleChange('holeEdgeOffset', v)}
-            minMm={1.0}
-            maxMm={63.5}
-            unitSystem={unitSystem}
-            error={errors.holeEdgeOffset}
-          />
-        </div>
-
-        {/* Shelf Cutout */}
+        {/* Cutout */}
         <div>
           <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Cutout</p>
           <DimensionSlider

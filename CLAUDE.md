@@ -6,6 +6,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-18
 - TypeScript 5.x stric + React 18, @react-three/fiber, @react-three/drei, Three.js, Zustand, Zod, JSZip (002-bracket-data-model)
 - N/A (no persistence) (002-bracket-data-model)
 - TypeScript 5.x stric + Three.js, @react-three/fiber, Zustand, Zod (003-shelf-cutout-aligned)
+- TypeScript 5.x stric + React 18, Zustand, Zod, Tailwind CSS (004-rack-profile-group)
+- `localStorage` (UI preference only, not bracket params) (004-rack-profile-group)
 
 - (001-initial-app) TypeScript 5.x strict, React 18, @react-three/fiber,
   @react-three/drei, three, zustand, jszip, zod, tailwindcss, vite, vitest
@@ -45,10 +47,10 @@ object shapes, `type` for unions/intersections.
 - `src/export/` functions accept geometry objects, not React components.
 
 ## Recent Changes
+- 004-rack-profile-group: Added TypeScript 5.x stric + React 18, Zustand, Zod, Tailwind CSS
 - 003-shelf-cutout-aligned: Added TypeScript 5.x stric + Three.js, @react-three/fiber, Zustand, Zod
 - 002-bracket-data-model: Added TypeScript 5.x stric + React 18, @react-three/fiber, @react-three/drei, Three.js, Zustand, Zod, JSZip
 
-- 001-initial-app: Initial app — full greenfield implementation
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
