@@ -96,7 +96,7 @@ export function DimensionPanel() {
             </select>
             <button
               onClick={() => setProfileModalOpen(true)}
-              className="text-zinc-500 hover:text-zinc-200 transition-colors p-1"
+              className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-zinc-100 hover:border-zinc-500 transition-colors cursor-pointer"
               aria-label="Edit rack profile"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
