@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useBracketStore } from '../store/bracketStore';
 import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
 import {
   faceplateWidth,
   shelfMaxWidth,
-  holeCount,
 } from '../geometry/bracket';
 import { DimensionSlider } from './DimensionSlider';
 import { UnitToggle } from './UnitToggle';
 import { fromMm } from '../units/convert';
+import { RackProfileModal } from './RackProfileModal';
 
 type Errors = Partial<Record<keyof BracketParams, string>>;
 
@@ -45,17 +45,10 @@ function ReadOnlyField({
 }
 
 export function DimensionPanel() {
-  const { params, setParam, unitSystem, setUnitSystem, resetToDefaults } =
+  const { params, setParam, unitSystem, setUnitSystem, resetToDefaults, rackProfiles, activeProfileId, setActiveProfile } =
     useBracketStore();
 
-  const [rackCollapsed, setRackCollapsed] = useState<boolean>(() => {
-    const saved = localStorage.getItem('ui-rack-profile-collapsed');
-    return saved !== null ? saved === 'true' : true;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('ui-rack-profile-collapsed', String(rackCollapsed));
-  }, [rackCollapsed]);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleChange = <K extends keyof BracketParams>(
     key: K,
@@ -68,7 +61,6 @@ export function DimensionPanel() {
 
   const fw = faceplateWidth(params);
   const smw = shelfMaxWidth(params);
-  const count = holeCount(params);
 
   return (
     <div className="flex flex-col h-full">
@@ -89,90 +81,30 @@ export function DimensionPanel() {
           <UnitToggle value={unitSystem} onChange={setUnitSystem} />
         </div>
 
-        {/* Rack Profile — collapsible */}
+        {/* Rack Profile — dropdown + edit */}
         <div>
-          <button
-            onClick={() => setRackCollapsed((c) => !c)}
-            className="flex items-center justify-between w-full text-xs text-zinc-500 uppercase tracking-wide mb-2 hover:text-zinc-300 transition-colors"
-          >
-            <span>Rack Profile</span>
-            <svg
-              className={`w-3 h-3 transition-transform duration-150 ${rackCollapsed ? '-rotate-90' : ''}`}
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Rack Profile</p>
+          <div className="flex items-center gap-2 mb-1">
+            <select
+              value={activeProfileId}
+              onChange={(e) => setActiveProfile(e.target.value)}
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-500 cursor-pointer"
             >
-              <polyline points="2,4 6,8 10,4" />
-            </svg>
-          </button>
+              {rackProfiles.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setProfileModalOpen(true)}
+              className="text-zinc-500 hover:text-zinc-200 transition-colors p-1"
+              aria-label="Edit rack profile"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5z" />
+              </svg>
+            </button>
+          </div>
           <ReadOnlyField label="Faceplate Width" valueMm={fw} unitSystem={unitSystem} />
-          {!rackCollapsed && (
-            <>
-              <DimensionSlider
-                label="Rack Width"
-                valueMm={params.rackWidth}
-                onChange={(v) => handleChange('rackWidth', v)}
-                minMm={50.8}
-                maxMm={609.6}
-                unitSystem={unitSystem}
-                error={errors.rackWidth}
-              />
-              <DimensionSlider
-                label="Rail Width"
-                valueMm={params.railWidth}
-                onChange={(v) => handleChange('railWidth', v)}
-                minMm={6.35}
-                maxMm={50.8}
-                unitSystem={unitSystem}
-                error={errors.railWidth}
-              />
-              <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
-                <span>Holes (per side)</span>
-                <span className="font-mono text-zinc-400">
-                  {count} <span className="text-zinc-600">(derived)</span>
-                </span>
-              </div>
-              <DimensionSlider
-                label="Hole Diameter"
-                valueMm={params.holeDiameter}
-                onChange={(v) => handleChange('holeDiameter', v)}
-                minMm={2.0}
-                maxMm={25.4}
-                unitSystem={unitSystem}
-                error={errors.holeDiameter}
-              />
-              <DimensionSlider
-                label="Hole Inset"
-                valueMm={params.holeInset}
-                onChange={(v) => handleChange('holeInset', v)}
-                minMm={1.0}
-                maxMm={100.0}
-                unitSystem={unitSystem}
-                error={errors.holeInset}
-              />
-              <DimensionSlider
-                label="Hole Edge Offset"
-                valueMm={params.holeEdgeOffset}
-                onChange={(v) => handleChange('holeEdgeOffset', v)}
-                minMm={1.0}
-                maxMm={63.5}
-                unitSystem={unitSystem}
-                error={errors.holeEdgeOffset}
-              />
-              <DimensionSlider
-                label="Rail Slot Width"
-                valueMm={params.railSlotWidth}
-                onChange={(v) => handleChange('railSlotWidth', v)}
-                minMm={3.175}
-                maxMm={19.05}
-                unitSystem={unitSystem}
-                error={errors.railSlotWidth}
-              />
-            </>
-          )}
         </div>
 
         {/* Faceplate */}
@@ -306,6 +238,10 @@ export function DimensionPanel() {
           Reset to defaults
         </button>
       </div>
+
+      {profileModalOpen && (
+        <RackProfileModal onClose={() => setProfileModalOpen(false)} />
+      )}
     </div>
   );
 }
