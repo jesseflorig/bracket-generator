@@ -17,7 +17,7 @@ export function BracketPage() {
       <div className="flex-1 relative">
         <BracketViewer />
         <div className="absolute top-3 right-3 text-xs text-zinc-600 pointer-events-none">
-          Drag to orbit · Scroll to zoom · Right-drag to pan
+          Drag to orbit · Scroll to zoom · Right-drag to pan · Space to reset
         </div>
       </div>
     </div>
