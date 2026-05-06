@@ -3,6 +3,7 @@ import { useBracketStore } from '../store/bracketStore';
 import { RackProfileParams, VANLAB_ID, extractRackProfileParams } from '../models/rackProfile';
 import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
 import { DimensionSlider } from './DimensionSlider';
+import { UnitToggle } from './UnitToggle';
 
 interface Props {
   onClose: () => void;
@@ -12,6 +13,7 @@ type RackErrors = Partial<Record<keyof RackProfileParams, string>>;
 
 const RACK_FIELDS: (keyof RackProfileParams)[] = [
   'rackWidth', 'railWidth', 'holeDiameter', 'holeInset', 'holeEdgeOffset', 'railSlotWidth',
+  'faceplateDepth', 'cornerRadius',
 ];
 
 function validateDraft(draft: RackProfileParams, baseParams: BracketParams): RackErrors {
@@ -63,7 +65,7 @@ function ConfirmDialog({
 }
 
 export function RackProfileModal({ onClose }: Props) {
-  const { params, unitSystem, rackProfiles, activeProfileId, upsertRackProfile, deleteRackProfile } =
+  const { params, unitSystem, setUnitSystem, rackProfiles, activeProfileId, upsertRackProfile, deleteRackProfile } =
     useBracketStore();
 
   const initialDraft = extractRackProfileParams(params);
@@ -172,62 +174,98 @@ export function RackProfileModal({ onClose }: Props) {
             </button>
           </div>
 
+          {/* Unit toggle */}
+          <div className="px-5 py-3 border-b border-zinc-800">
+            <UnitToggle value={unitSystem} onChange={setUnitSystem} />
+          </div>
+
           {/* Sliders */}
-          <div className="px-5 py-4 space-y-1 overflow-y-auto">
-            <DimensionSlider
-              label="Rack Width"
-              valueMm={draft.rackWidth}
-              onChange={(v) => updateDraft('rackWidth', v)}
-              minMm={50.8}
-              maxMm={609.6}
-              unitSystem={unitSystem}
-              error={errors.rackWidth}
-            />
-            <DimensionSlider
-              label="Rail Width"
-              valueMm={draft.railWidth}
-              onChange={(v) => updateDraft('railWidth', v)}
-              minMm={6.35}
-              maxMm={50.8}
-              unitSystem={unitSystem}
-              error={errors.railWidth}
-            />
-            <DimensionSlider
-              label="Hole Diameter"
-              valueMm={draft.holeDiameter}
-              onChange={(v) => updateDraft('holeDiameter', v)}
-              minMm={2.0}
-              maxMm={25.4}
-              unitSystem={unitSystem}
-              error={errors.holeDiameter}
-            />
-            <DimensionSlider
-              label="Hole Inset"
-              valueMm={draft.holeInset}
-              onChange={(v) => updateDraft('holeInset', v)}
-              minMm={1.0}
-              maxMm={100.0}
-              unitSystem={unitSystem}
-              error={errors.holeInset}
-            />
-            <DimensionSlider
-              label="Hole Edge Offset"
-              valueMm={draft.holeEdgeOffset}
-              onChange={(v) => updateDraft('holeEdgeOffset', v)}
-              minMm={1.0}
-              maxMm={63.5}
-              unitSystem={unitSystem}
-              error={errors.holeEdgeOffset}
-            />
-            <DimensionSlider
-              label="Rail Slot Width"
-              valueMm={draft.railSlotWidth}
-              onChange={(v) => updateDraft('railSlotWidth', v)}
-              minMm={3.175}
-              maxMm={19.05}
-              unitSystem={unitSystem}
-              error={errors.railSlotWidth}
-            />
+          <div className="px-5 py-4 overflow-y-auto space-y-4">
+
+            <div>
+              <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Rack Dimensions</p>
+              <div className="space-y-1">
+                <DimensionSlider
+                  label="Rack Width"
+                  valueMm={draft.rackWidth}
+                  onChange={(v) => updateDraft('rackWidth', v)}
+                  minMm={50.8}
+                  maxMm={609.6}
+                  unitSystem={unitSystem}
+                  error={errors.rackWidth}
+                />
+                <DimensionSlider
+                  label="Rail Width"
+                  valueMm={draft.railWidth}
+                  onChange={(v) => updateDraft('railWidth', v)}
+                  minMm={6.35}
+                  maxMm={50.8}
+                  unitSystem={unitSystem}
+                  error={errors.railWidth}
+                />
+                <DimensionSlider
+                  label="Hole Diameter"
+                  valueMm={draft.holeDiameter}
+                  onChange={(v) => updateDraft('holeDiameter', v)}
+                  minMm={2.0}
+                  maxMm={25.4}
+                  unitSystem={unitSystem}
+                  error={errors.holeDiameter}
+                />
+                <DimensionSlider
+                  label="Hole Inset"
+                  valueMm={draft.holeInset}
+                  onChange={(v) => updateDraft('holeInset', v)}
+                  minMm={1.0}
+                  maxMm={100.0}
+                  unitSystem={unitSystem}
+                  error={errors.holeInset}
+                />
+                <DimensionSlider
+                  label="Hole Edge Offset"
+                  valueMm={draft.holeEdgeOffset}
+                  onChange={(v) => updateDraft('holeEdgeOffset', v)}
+                  minMm={1.0}
+                  maxMm={63.5}
+                  unitSystem={unitSystem}
+                  error={errors.holeEdgeOffset}
+                />
+                <DimensionSlider
+                  label="Rail Slot Width"
+                  valueMm={draft.railSlotWidth}
+                  onChange={(v) => updateDraft('railSlotWidth', v)}
+                  minMm={3.175}
+                  maxMm={19.05}
+                  unitSystem={unitSystem}
+                  error={errors.railSlotWidth}
+                />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Faceplate Standards</p>
+              <div className="space-y-1">
+                <DimensionSlider
+                  label="Faceplate Depth"
+                  valueMm={draft.faceplateDepth}
+                  onChange={(v) => updateDraft('faceplateDepth', v)}
+                  minMm={1.5875}
+                  maxMm={6.35}
+                  unitSystem={unitSystem}
+                  error={errors.faceplateDepth}
+                />
+                <DimensionSlider
+                  label="Corner Radius"
+                  valueMm={draft.cornerRadius}
+                  onChange={(v) => updateDraft('cornerRadius', v)}
+                  minMm={0}
+                  maxMm={15}
+                  unitSystem={unitSystem}
+                  error={errors.cornerRadius}
+                />
+              </div>
+            </div>
+
           </div>
 
           {/* Save row */}

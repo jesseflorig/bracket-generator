@@ -1,7 +1,8 @@
 import { BracketParams, DEFAULT_PARAMS } from './bracketParams';
 
 export type RackProfileParams = Pick<BracketParams,
-  'rackWidth' | 'railWidth' | 'holeDiameter' | 'holeInset' | 'holeEdgeOffset' | 'railSlotWidth'
+  'rackWidth' | 'railWidth' | 'holeDiameter' | 'holeInset' | 'holeEdgeOffset' | 'railSlotWidth' |
+  'faceplateDepth' | 'cornerRadius'
 >;
 
 export interface RackProfile {
@@ -22,6 +23,8 @@ export const VANLAB_PROFILE: RackProfile = {
     holeInset: DEFAULT_PARAMS.holeInset,
     holeEdgeOffset: DEFAULT_PARAMS.holeEdgeOffset,
     railSlotWidth: DEFAULT_PARAMS.railSlotWidth,
+    faceplateDepth: DEFAULT_PARAMS.faceplateDepth,
+    cornerRadius: DEFAULT_PARAMS.cornerRadius,
   },
 };
 
@@ -60,5 +63,7 @@ export function extractRackProfileParams(params: BracketParams): RackProfilePara
     holeInset: params.holeInset,
     holeEdgeOffset: params.holeEdgeOffset,
     railSlotWidth: params.railSlotWidth,
+    faceplateDepth: params.faceplateDepth,
+    cornerRadius: params.cornerRadius,
   };
 }

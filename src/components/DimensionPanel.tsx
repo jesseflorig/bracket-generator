@@ -119,24 +119,6 @@ export function DimensionPanel() {
             unitSystem={unitSystem}
             error={errors.faceplateHeight}
           />
-          <DimensionSlider
-            label="Depth"
-            valueMm={params.faceplateDepth}
-            onChange={(v) => handleChange('faceplateDepth', v)}
-            minMm={1.5875}
-            maxMm={6.35}
-            unitSystem={unitSystem}
-            error={errors.faceplateDepth}
-          />
-          <DimensionSlider
-            label="Corner Radius"
-            valueMm={params.cornerRadius}
-            onChange={(v) => handleChange('cornerRadius', v)}
-            minMm={0}
-            maxMm={15}
-            unitSystem={unitSystem}
-            error={errors.cornerRadius}
-          />
         </div>
 
         {/* Cutout */}
