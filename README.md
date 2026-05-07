@@ -2,46 +2,50 @@
 
 ![Project Screenshot](assets/screenshot.png)
 
-A 3D bracket generator tool built with React, Three.js, and TypeScript. This application allows users to design and visualize custom brackets with various parameters.
+A browser-based 3D bracket generator for designing rack-mount shelf brackets and exporting slicer-ready models.
 
 ## Features
 
-- Interactive 3D bracket visualization
-- Configurable bracket parameters (width, height, depth, hole positions)
-- Real-time preview of bracket designs
-- Export functionality for 3D models (STL/3MF formats)
-- Responsive web interface with Tailwind CSS styling
+- Interactive Three.js preview with orbit, zoom, pan, and reset controls
+- Manifold-based bracket geometry for clean solid models
+- Rack profiles with editable rack width, rail width, mounting holes, rail slot width, faceplate depth, and corner radius
+- Unit toggle for millimeters and inches
+- Configurable faceplate height, cutout size, shelf depth, and shelf wall thickness
+- Shelf width readouts for rack width, shelf width, and width budget
+- Optional hex mesh cutouts on shelf side walls and floor panel
+- STL and 3MF export for slicers
 
 ## Technical Stack
 
 - **Frontend**: [React 18](https://react.dev), [TypeScript 5.x](https://www.typescriptlang.org)
 - **3D Rendering**: [Three.js](https://threejs.org) with [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) and [Drei](https://github.com/pmndrs/drei)
+- **Solid Geometry**: [manifold-3d](https://github.com/elalish/manifold)
 - **State Management**: [Zustand](https://zustand-demo.pmnd.rs)
 - **Data Validation**: [Zod](https://zod.dev)
 - **Build Tool**: [Vite](https://vite.dev)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com)
 - **Testing**: [Vitest](https://vitest.dev)
-- **Export**: [JSZip](https://stuk.github.io/jszip) (3MF packaging)
+- **Export**: Three.js STL exporter and [JSZip](https://stuk.github.io/jszip) for 3MF packaging
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js v18+
-- pnpm package manager
+- npm
 
 ### Installation
 
 Clone the repository and install dependencies:
 ```bash
-pnpm install
+npm install
 ```
 
 ### Development
 
 Start the development server:
 ```bash
-pnpm dev
+npm run dev
 ```
 
 The application will be available at `http://localhost:5173`
@@ -50,14 +54,19 @@ The application will be available at `http://localhost:5173`
 
 Create a production build:
 ```bash
-pnpm build
+npm run build
 ```
 
 ### Testing
 
 Run tests:
 ```bash
-pnpm test
+npm test -- --run
+```
+
+Run TypeScript checks:
+```bash
+npm run typecheck
 ```
 
 ## Project Structure
@@ -75,24 +84,22 @@ src/
 
 ## Usage
 
-1. Adjust the bracket parameters using the control panel
-2. View the 3D model in real-time
-3. Fine-tune the design by modifying parameters
-4. Export your bracket design in STL or 3MF format
+1. Choose or edit a rack profile.
+2. Set the faceplate, cutout, shelf, and hex mesh parameters in the side panel.
+3. Use the shelf readouts to compare shelf width against rack width.
+4. Inspect the model in the 3D viewer.
+5. Export the final bracket as STL or 3MF.
 
-## Contributing
+## Notes
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Export geometry comes from the manifold mesh used by the model builder.
+- Browser rendering uses a display-only geometry pass with crease-aware normals so flat CAD faces shade cleanly.
+- Rack profiles are stored in browser `localStorage`.
+- There is currently no `lint` script in `package.json`.
 
 ## Acknowledgments
 
 - 3D rendering via [Three.js](https://threejs.org) and [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
+- Solid geometry via [manifold-3d](https://github.com/elalish/manifold)
 - State management via [Zustand](https://zustand-demo.pmnd.rs)
 - Schema validation via [Zod](https://zod.dev)
