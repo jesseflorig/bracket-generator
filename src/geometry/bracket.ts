@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { BracketParams } from '../models/bracketParams';
 
 // ---------------------------------------------------------------------------
@@ -61,53 +61,83 @@ function roundedRect(
   shape.absarc(x + safeR, y + safeR, safeR, Math.PI, Math.PI * 1.5, false);
 }
 
+function rectHole(
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): THREE.Path {
+  const p = new THREE.Path();
+  p.moveTo(x, y);
+  p.lineTo(x + w, y);
+  p.lineTo(x + w, y + h);
+  p.lineTo(x, y + h);
+  p.closePath();
+  return p;
+}
+
 // ---------------------------------------------------------------------------
-// Faceplate geometry (Shape + ExtrudeGeometry with cutout and holes)
+// Faceplate geometry
+//
+// The shape holes are expanded so the faceplate back face has NO triangles
+// where the shelf walls or rail slots sit flush against it.  This prevents
+// coplanar back-to-back faces that would produce non-manifold edges.
+//
+// • Shelf present → cutout is widened to (cw + 2t) × (ch + t), which is the
+//   union of the cutout and the three shelf-wall footprints (left, right, floor).
+// • Rail slots → each slot rectangle is punched through the faceplate so its
+//   perimeter edges land in the tessellation.  mergeVertices then welds the
+//   faceplate tunnel wall to the slot box at Z = faceplateDepth.
 // ---------------------------------------------------------------------------
 
 function buildFaceplate(p: BracketParams): THREE.BufferGeometry {
   const fw = faceplateWidth(p);
   const fh = p.faceplateHeight;
   const fd = p.faceplateDepth;
+  const cw = p.cutoutWidth;
+  const ch = p.cutoutHeight;
+  const t = p.shelfWallThickness;
+  const hasShelf = p.shelfDepth > 0 && cw > 0 && ch > 0;
 
-  // Outer shape: rounded rectangle, centered on origin
   const shape = new THREE.Shape();
   roundedRect(shape, -fw / 2, -fh / 2, fw, fh, p.cornerRadius);
 
-  // Cutout hole (rectangular, centered)
-  if (p.cutoutWidth > 0 && p.cutoutHeight > 0) {
-    const cutout = new THREE.Path();
-    cutout.moveTo(-p.cutoutWidth / 2, -p.cutoutHeight / 2);
-    cutout.lineTo(p.cutoutWidth / 2, -p.cutoutHeight / 2);
-    cutout.lineTo(p.cutoutWidth / 2, p.cutoutHeight / 2);
-    cutout.lineTo(-p.cutoutWidth / 2, p.cutoutHeight / 2);
-    cutout.closePath();
-    shape.holes.push(cutout);
+  // Main opening — expanded to include shelf wall footprint when shelf is present
+  if (cw > 0 && ch > 0) {
+    const hw = hasShelf ? (cw + 2 * t) / 2 : cw / 2;
+    const yTop = ch / 2;
+    const yBot = hasShelf ? -(ch / 2 + t) : -ch / 2;
+    shape.holes.push(rectHole(-hw, yBot, 2 * hw, yTop - yBot));
   }
 
-  // Mounting holes — one column per side
-  const count = holeCount(p);
+  // Mounting holes + rail-slot through-holes
   const positions = holePositions(p);
   const holeR = p.holeDiameter / 2;
+  const slotW = p.holeDiameter - 0.01;
+  const slotH = p.railSlotWidth;
   const leftX = -(fw / 2 - p.holeInset);
   const rightX = fw / 2 - p.holeInset;
 
   for (const pos of positions) {
     for (const hx of [leftX, rightX]) {
+      // Circular mounting hole
       const holePath = new THREE.Path();
       holePath.absarc(hx, pos.y, holeR, 0, Math.PI * 2, false);
       shape.holes.push(holePath);
+
+      // Rectangular rail slot holes above and below each mounting hole
+      const topY = pos.y + holeR + slotH / 2;
+      const botY = pos.y - holeR - slotH / 2;
+      shape.holes.push(rectHole(hx - slotW / 2, topY - slotH / 2, slotW, slotH));
+      shape.holes.push(rectHole(hx - slotW / 2, botY - slotH / 2, slotW, slotH));
     }
   }
-
-  // Suppress unused variable warning — count is used via positions
-  void count;
 
   const geo = new THREE.ExtrudeGeometry(shape, {
     depth: fd,
     bevelEnabled: false,
+    curveSegments: 32,
   });
-  // ExtrudeGeometry extrudes along +Z; translate so front face sits at Z=0
   geo.translate(0, 0, 0);
 
   return geo;
@@ -245,7 +275,7 @@ function buildRailSlots(p: BracketParams): THREE.BufferGeometry | null {
   const slotH = p.railSlotWidth;
   const leftX = -(fw / 2 - p.holeInset);
   const rightX = fw / 2 - p.holeInset;
-  const zCenter = p.faceplateDepth + SLOT_DEPTH_MM / 2; // protrude from faceplateDepth outward, same side as shelf
+  const zCenter = p.faceplateDepth + SLOT_DEPTH_MM / 2;
 
   const parts: THREE.BufferGeometry[] = [];
 
@@ -276,7 +306,6 @@ function buildRailSlots(p: BracketParams): THREE.BufferGeometry | null {
 export function buildBracket(p: BracketParams): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
 
-  // ExtrudeGeometry must be converted to non-indexed before merging with BoxGeometry parts.
   const faceplate = buildFaceplate(p);
   parts.push(faceplate.toNonIndexed());
   faceplate.dispose();
@@ -293,10 +322,18 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
     slots.dispose();
   }
 
-  if (parts.length === 1) return parts[0];
+  if (parts.length === 1) {
+    // Single part — still weld any degenerate coincident vertices from ExtrudeGeometry
+    const welded = mergeVertices(parts[0], 0.001);
+    parts[0].dispose();
+    return welded;
+  }
 
   const merged = mergeGeometries(parts);
   parts.forEach((g) => g.dispose());
+  if (!merged) return buildFaceplate(p);
 
-  return merged ?? buildFaceplate(p);
+  const welded = mergeVertices(merged, 0.001);
+  merged.dispose();
+  return welded;
 }
