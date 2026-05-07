@@ -4,6 +4,7 @@ import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import * as THREE from 'three';
 import { useBracketStore } from '../store/bracketStore';
 import { buildBracket, faceplateWidth, manifoldReady } from '../geometry/bracket';
+import { toBracketRenderGeometry } from '../geometry/renderGeometry';
 
 function BracketMesh() {
   const params = useBracketStore((s) => s.params);
@@ -13,10 +14,14 @@ function BracketMesh() {
     manifoldReady.then(() => setReady(true));
   }, []);
 
-  const geometry = useMemo(
-    () => (ready ? buildBracket(params) : new THREE.BufferGeometry()),
-    [params, ready]
-  );
+  const geometry = useMemo(() => {
+    if (!ready) return new THREE.BufferGeometry();
+
+    const sourceGeometry = buildBracket(params);
+    const renderGeometry = toBracketRenderGeometry(sourceGeometry);
+    sourceGeometry.dispose();
+    return renderGeometry;
+  }, [params, ready]);
 
   useEffect(() => {
     return () => {
@@ -27,7 +32,7 @@ function BracketMesh() {
   return (
     <group>
       <mesh geometry={geometry} castShadow receiveShadow>
-        <meshLambertMaterial color="#94a3b8" />
+        <meshStandardMaterial color="#94a3b8" roughness={0.72} metalness={0} />
       </mesh>
     </group>
   );
@@ -106,12 +111,16 @@ export function BracketViewer() {
           intensity={1.2}
           castShadow
           shadow-mapSize={[2048, 2048]}
-        />
+          shadow-bias={-0.00008}
+          shadow-normalBias={0.04}
+        >
+          <orthographicCamera attach="shadow-camera" args={[-320, 320, 320, -320, 1, 700]} />
+        </directionalLight>
         <directionalLight position={[-80, 60, -80]} intensity={0.4} />
 
         <BracketMesh />
 
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -params.faceplateHeight / 2 - 1, 0]} receiveShadow>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -params.faceplateHeight / 2 - 1, 0]}>
           <planeGeometry args={[600, 600]} />
           <meshStandardMaterial color="#1e293b" roughness={1} />
         </mesh>
