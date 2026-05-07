@@ -1,6 +1,44 @@
 import * as THREE from 'three';
-import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import ManifoldModule from 'manifold-3d';
+import manifoldWasmUrl from 'manifold-3d/manifold.wasm?url';
+import type { ManifoldToplevel, SimplePolygon } from 'manifold-3d';
 import type { BracketParams } from '../models/bracketParams';
+
+// ---------------------------------------------------------------------------
+// Manifold WASM initialization — call manifoldReady before buildBracket
+// ---------------------------------------------------------------------------
+
+interface ManifoldState {
+  lib: ManifoldToplevel | null;
+  ready: Promise<void> | null;
+}
+
+type GlobalWithManifoldState = typeof globalThis & {
+  __bracketGeneratorManifold?: ManifoldState;
+};
+
+const manifoldState =
+  (globalThis as GlobalWithManifoldState).__bracketGeneratorManifold ??= {
+    lib: null,
+    ready: null,
+  };
+
+const resolvedManifoldWasmUrl =
+  typeof window === 'undefined'
+    ? new URL('../../node_modules/manifold-3d/manifold.wasm', import.meta.url).href
+    : manifoldWasmUrl;
+
+export const manifoldReady: Promise<void> = manifoldState.ready ??= ManifoldModule({
+  locateFile: () => resolvedManifoldWasmUrl,
+}).then((loadedLib) => {
+  loadedLib.setup();
+  manifoldState.lib = loadedLib;
+});
+
+function lib(): ManifoldToplevel {
+  if (!manifoldState.lib) throw new Error('Manifold WASM not yet loaded — await manifoldReady first');
+  return manifoldState.lib;
+}
 
 // ---------------------------------------------------------------------------
 // Derived values — pure functions, never stored in state
@@ -38,131 +76,27 @@ export function holePositions(p: BracketParams): { x: number; y: number }[] {
 }
 
 // ---------------------------------------------------------------------------
-// Rounded-rectangle shape path helper
+// Hex mesh helpers
 // ---------------------------------------------------------------------------
 
-function roundedRect(
-  shape: THREE.Shape | THREE.Path,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-): void {
-  const safeR = Math.min(r, w / 2, h / 2);
-  shape.moveTo(x + safeR, y);
-  shape.lineTo(x + w - safeR, y);
-  shape.absarc(x + w - safeR, y + safeR, safeR, -Math.PI / 2, 0, false);
-  shape.lineTo(x + w, y + h - safeR);
-  shape.absarc(x + w - safeR, y + h - safeR, safeR, 0, Math.PI / 2, false);
-  shape.lineTo(x + safeR, y + h);
-  shape.absarc(x + safeR, y + h - safeR, safeR, Math.PI / 2, Math.PI, false);
-  shape.lineTo(x, y + safeR);
-  shape.absarc(x + safeR, y + safeR, safeR, Math.PI, Math.PI * 1.5, false);
-}
-
-function rectHole(
-  x: number,
-  y: number,
-  w: number,
-  h: number
-): THREE.Path {
-  const p = new THREE.Path();
-  p.moveTo(x, y);
-  p.lineTo(x + w, y);
-  p.lineTo(x + w, y + h);
-  p.lineTo(x, y + h);
-  p.closePath();
-  return p;
-}
-
-// ---------------------------------------------------------------------------
-// Faceplate geometry
-//
-// The shape holes are expanded so the faceplate back face has NO triangles
-// where the shelf walls or rail slots sit flush against it.  This prevents
-// coplanar back-to-back faces that would produce non-manifold edges.
-//
-// • Shelf present → cutout is widened to (cw + 2t) × (ch + t), which is the
-//   union of the cutout and the three shelf-wall footprints (left, right, floor).
-// • Rail slots → each slot rectangle is punched through the faceplate so its
-//   perimeter edges land in the tessellation.  mergeVertices then welds the
-//   faceplate tunnel wall to the slot box at Z = faceplateDepth.
-// ---------------------------------------------------------------------------
-
-function buildFaceplate(p: BracketParams): THREE.BufferGeometry {
-  const fw = faceplateWidth(p);
-  const fh = p.faceplateHeight;
-  const fd = p.faceplateDepth;
-  const cw = p.cutoutWidth;
-  const ch = p.cutoutHeight;
-  const t = p.shelfWallThickness;
-  const hasShelf = p.shelfDepth > 0 && cw > 0 && ch > 0;
-
-  const shape = new THREE.Shape();
-  roundedRect(shape, -fw / 2, -fh / 2, fw, fh, p.cornerRadius);
-
-  // Main opening — expanded to include shelf wall footprint when shelf is present
-  if (cw > 0 && ch > 0) {
-    const hw = hasShelf ? (cw + 2 * t) / 2 : cw / 2;
-    const yTop = ch / 2;
-    const yBot = hasShelf ? -(ch / 2 + t) : -ch / 2;
-    shape.holes.push(rectHole(-hw, yBot, 2 * hw, yTop - yBot));
-  }
-
-  // Mounting holes + rail-slot through-holes
-  const positions = holePositions(p);
-  const holeR = p.holeDiameter / 2;
-  const slotW = p.holeDiameter - 0.01;
-  const slotH = p.railSlotWidth;
-  const leftX = -(fw / 2 - p.holeInset);
-  const rightX = fw / 2 - p.holeInset;
-
-  for (const pos of positions) {
-    for (const hx of [leftX, rightX]) {
-      // Circular mounting hole
-      const holePath = new THREE.Path();
-      holePath.absarc(hx, pos.y, holeR, 0, Math.PI * 2, false);
-      shape.holes.push(holePath);
-
-      // Rectangular rail slot holes above and below each mounting hole
-      const topY = pos.y + holeR + slotH / 2;
-      const botY = pos.y - holeR - slotH / 2;
-      shape.holes.push(rectHole(hx - slotW / 2, topY - slotH / 2, slotW, slotH));
-      shape.holes.push(rectHole(hx - slotW / 2, botY - slotH / 2, slotW, slotH));
-    }
-  }
-
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: fd,
-    bevelEnabled: false,
-    curveSegments: 32,
-  });
-  geo.translate(0, 0, 0);
-
-  return geo;
-}
-
-// ---------------------------------------------------------------------------
-// Hex mesh helpers — flat-top honeycomb holes for shelf wall panels
-// ---------------------------------------------------------------------------
-
-export function hexHolePaths(faceW: number, faceH: number, p: BracketParams): THREE.Path[] {
+function hexHoleCenters(
+  faceW: number,
+  faceH: number,
+  p: BracketParams
+): Array<{ cx: number; cy: number }> {
   const aw = faceW - 2 * p.hexHoleInset;
   const ah = faceH - 2 * p.hexHoleInset;
   if (aw <= 0 || ah <= 0 || p.hexHoleDiameter <= 0) return [];
 
-  const R = p.hexHoleDiameter / Math.sqrt(3); // circumradius
+  const R = p.hexHoleDiameter / Math.sqrt(3);
   if (2 * R > aw || 2 * R > ah) return [];
 
-  // colStep: horizontal center-to-center between adjacent columns
-  // rowStep: vertical center-to-center within a column
   const colStep = 1.5 * R + p.hexHoleGap;
   const rowStep = p.hexHoleDiameter + p.hexHoleGap;
-
-  const paths: THREE.Path[] = [];
   const maxCols = Math.ceil(aw / (2 * colStep)) + 2;
   const maxRows = Math.ceil(ah / (2 * rowStep)) + 2;
+
+  const centers: Array<{ cx: number; cy: number }> = [];
 
   for (let ci = -maxCols; ci <= maxCols; ci++) {
     const cx = ci * colStep;
@@ -177,163 +111,198 @@ export function hexHolePaths(faceW: number, faceH: number, p: BracketParams): TH
         const vy = cy + R * Math.sin((i * Math.PI) / 3);
         if (vx < -aw / 2 || vx > aw / 2 || vy < -ah / 2 || vy > ah / 2) fits = false;
       }
-      if (!fits) continue;
-
-      const path = new THREE.Path();
-      path.moveTo(cx + R, cy);
-      for (let i = 1; i < 6; i++) {
-        path.lineTo(cx + R * Math.cos((i * Math.PI) / 3), cy + R * Math.sin((i * Math.PI) / 3));
-      }
-      path.closePath();
-      paths.push(path);
+      if (fits) centers.push({ cx, cy });
     }
   }
 
-  return paths;
+  return centers;
 }
 
-// Builds a faceW × faceH wall panel with hex holes, extruded by thickness along +Z.
-// Geometry is centered on the origin in XY — caller applies rotation and translation.
-function buildHexWallPanel(
-  faceW: number,
-  faceH: number,
-  thickness: number,
-  p: BracketParams
-): THREE.BufferGeometry {
-  const shape = new THREE.Shape();
-  shape.moveTo(-faceW / 2, -faceH / 2);
-  shape.lineTo(faceW / 2, -faceH / 2);
-  shape.lineTo(faceW / 2, faceH / 2);
-  shape.lineTo(-faceW / 2, faceH / 2);
-  shape.closePath();
-  shape.holes = hexHolePaths(faceW, faceH, p);
-  return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
+export function hexHolePaths(faceW: number, faceH: number, p: BracketParams): THREE.Path[] {
+  const R = p.hexHoleDiameter / Math.sqrt(3);
+  return hexHoleCenters(faceW, faceH, p).map(({ cx, cy }) => {
+    const path = new THREE.Path();
+    path.moveTo(cx + R, cy);
+    for (let i = 1; i < 6; i++) {
+      path.lineTo(cx + R * Math.cos((i * Math.PI) / 3), cy + R * Math.sin((i * Math.PI) / 3));
+    }
+    path.closePath();
+    return path;
+  });
 }
 
 // ---------------------------------------------------------------------------
-// Shelf geometry — side walls use hex mesh panels; floor is BoxGeometry or hex panel
+// Manifold ↔ Three.js conversion
 // ---------------------------------------------------------------------------
 
-function buildShelf(p: BracketParams): THREE.BufferGeometry | null {
-  if (p.shelfDepth <= 0 || p.cutoutWidth <= 0 || p.cutoutHeight <= 0) return null;
+function manifoldToGeo(m: ReturnType<ManifoldToplevel['Manifold']['prototype']['add']>): THREE.BufferGeometry {
+  const mesh = m.getMesh();
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(mesh.vertProperties), 3));
+  geo.setIndex(new THREE.BufferAttribute(new Uint32Array(mesh.triVerts), 1));
+  geo.computeVertexNormals();
+  return geo;
+}
 
-  const cw = p.cutoutWidth;
-  const ch = p.cutoutHeight;
-  const fd = p.faceplateDepth;
-  const t = p.shelfWallThickness;
-  const depth = p.shelfDepth;
-  const zCenter = fd + depth / 2;
+// ---------------------------------------------------------------------------
+// Rounded-rectangle cross-section polygon
+// ---------------------------------------------------------------------------
 
-  const parts: THREE.BufferGeometry[] = [];
+function roundedRectPolygon(
+  cx: number, cy: number, w: number, h: number, r: number, segs = 8
+): SimplePolygon {
+  const safeR = Math.min(r, w / 2, h / 2);
+  const pts: [number, number][] = [];
 
-  // Bottom panel — solid BoxGeometry by default; hex panel when hexMeshFloor is enabled
-  if (p.hexMeshFloor) {
-    // faceW=cw, faceH=depth; extrude by t; rotate -90° around X so face lies in XZ plane
-    const panel = buildHexWallPanel(cw, depth, t, p);
-    panel.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
-    panel.applyMatrix4(new THREE.Matrix4().makeTranslation(0, -(ch / 2 + t), zCenter));
-    parts.push(panel.toNonIndexed());
-    panel.dispose();
-  } else {
-    const bottom = new THREE.BoxGeometry(cw, t, depth);
-    bottom.translate(0, -(ch / 2 + t / 2), zCenter);
-    parts.push(bottom.toNonIndexed());
-    bottom.dispose();
+  const arc = (ox: number, oy: number, startAngle: number) => {
+    for (let i = 0; i < segs; i++) {
+      const a = startAngle + (i / segs) * (Math.PI / 2);
+      pts.push([ox + safeR * Math.cos(a), oy + safeR * Math.sin(a)]);
+    }
+  };
+
+  // BL corner, BR corner, TR corner, TL corner
+  arc(cx - w / 2 + safeR, cy - h / 2 + safeR, Math.PI);
+  arc(cx + w / 2 - safeR, cy - h / 2 + safeR, Math.PI * 1.5);
+  arc(cx + w / 2 - safeR, cy + h / 2 - safeR, 0);
+  arc(cx - w / 2 + safeR, cy + h / 2 - safeR, Math.PI / 2);
+
+  return pts;
+}
+
+// ---------------------------------------------------------------------------
+// Perforated wall panel cross-section — outer rect minus hex holes
+// ---------------------------------------------------------------------------
+
+function hexWallCrossSection(faceW: number, faceH: number, p: BracketParams) {
+  const { CrossSection } = lib();
+
+  // Outer rectangle
+  let cs = CrossSection.square([faceW, faceH], true);
+
+  // Subtract all hex holes
+  const R = p.hexHoleDiameter / Math.sqrt(3);
+  const centers = hexHoleCenters(faceW, faceH, p);
+  if (centers.length > 0) {
+    const holes = centers.map(({ cx, cy }) => {
+      const hexPts: SimplePolygon = Array.from({ length: 6 }, (_, i) => [
+        cx + R * Math.cos((i * Math.PI) / 3),
+        cy + R * Math.sin((i * Math.PI) / 3),
+      ] as [number, number]);
+      return new CrossSection([hexPts]);
+    });
+    cs = cs.subtract(CrossSection.union(holes));
   }
 
-  // Left wall — faceW=depth, faceH=ch+t; extrude by t; rotate -90° around Y
-  const leftPanel = buildHexWallPanel(depth, ch + t, t, p);
-  leftPanel.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.PI / 2));
-  leftPanel.applyMatrix4(new THREE.Matrix4().makeTranslation(-cw / 2, -t / 2, zCenter));
-  parts.push(leftPanel.toNonIndexed());
-  leftPanel.dispose();
-
-  // Right wall — same shape as left, mirrored translation
-  const rightPanel = buildHexWallPanel(depth, ch + t, t, p);
-  rightPanel.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.PI / 2));
-  rightPanel.applyMatrix4(new THREE.Matrix4().makeTranslation(cw / 2 + t, -t / 2, zCenter));
-  parts.push(rightPanel.toNonIndexed());
-  rightPanel.dispose();
-
-  const merged = mergeGeometries(parts);
-  parts.forEach((g) => g.dispose());
-  return merged;
+  return cs;
 }
 
 // ---------------------------------------------------------------------------
-// Rail slot geometry — bumps above and below each hole on the backside
+// Bracket geometry — built entirely from Manifold primitives
 // ---------------------------------------------------------------------------
 
 const SLOT_DEPTH_MM = 2.032; // 0.08"
 
-function buildRailSlots(p: BracketParams): THREE.BufferGeometry | null {
-  const positions = holePositions(p);
-  if (positions.length === 0) return null;
+export function buildBracket(p: BracketParams): THREE.BufferGeometry {
+  const { Manifold, CrossSection } = lib();
 
   const fw = faceplateWidth(p);
-  const slotW = p.holeDiameter - 0.01; // FR-010: slot width = hole diameter - 0.01mm
-  const slotH = p.railSlotWidth;
-  const leftX = -(fw / 2 - p.holeInset);
-  const rightX = fw / 2 - p.holeInset;
-  const zCenter = p.faceplateDepth + SLOT_DEPTH_MM / 2;
+  const fh = p.faceplateHeight;
+  const fd = p.faceplateDepth;
+  const cw = p.cutoutWidth;
+  const ch = p.cutoutHeight;
+  const t  = p.shelfWallThickness;
 
-  const parts: THREE.BufferGeometry[] = [];
+  // --- Faceplate body ---
+  const fpPoly = roundedRectPolygon(0, 0, fw, fh, p.cornerRadius, 8);
+  const fpBody = new CrossSection([fpPoly]).extrude(fd);
 
-  for (const pos of positions) {
-    const topY = pos.y + p.holeDiameter / 2 + slotH / 2;
-    const bottomY = pos.y - p.holeDiameter / 2 - slotH / 2;
+  const parts: ReturnType<typeof Manifold.cube>[] = [fpBody];
 
-    for (const hx of [leftX, rightX]) {
-      const top = new THREE.BoxGeometry(slotW, slotH, SLOT_DEPTH_MM);
-      top.translate(hx, topY, zCenter);
-      parts.push(top);
+  // --- Shelf walls ---
+  const hasShelf = p.shelfDepth > 0 && cw > 0 && ch > 0;
+  if (hasShelf) {
+    const depth = p.shelfDepth;
 
-      const bottom = new THREE.BoxGeometry(slotW, slotH, SLOT_DEPTH_MM);
-      bottom.translate(hx, bottomY, zCenter);
-      parts.push(bottom);
+    // Left wall: face = depth(Z) × (ch+t)(Y), thickness = t (X)
+    const leftCS = hexWallCrossSection(depth, ch + t, p);
+    const leftWall = leftCS
+      .extrude(t)
+      .rotate([0, -90, 0])
+      .translate([-cw / 2, -t / 2, fd + depth / 2]);
+    parts.push(leftWall);
+
+    // Right wall: same cross-section, mirrored X
+    const rightCS = hexWallCrossSection(depth, ch + t, p);
+    const rightWall = rightCS
+      .extrude(t)
+      .rotate([0, -90, 0])
+      .translate([cw / 2 + t, -t / 2, fd + depth / 2]);
+    parts.push(rightWall);
+
+    // Bottom floor
+    if (p.hexMeshFloor) {
+      const floorCS = hexWallCrossSection(cw, depth, p);
+      const floorPanel = floorCS
+        .extrude(t)
+        .rotate([-90, 0, 0])
+        .translate([0, -(ch / 2 + t), fd + depth / 2]);
+      parts.push(floorPanel);
+    } else {
+      const floor = Manifold.cube([cw, t, depth], true)
+        .translate([0, -(ch / 2 + t / 2), fd + depth / 2]);
+      parts.push(floor);
     }
   }
 
-  const merged = mergeGeometries(parts);
-  parts.forEach((g) => g.dispose());
-  return merged;
-}
+  // --- Rail slot bumps ---
+  const positions = holePositions(p);
+  if (positions.length > 0) {
+    const slotW = p.holeDiameter - 0.01;
+    const slotH = p.railSlotWidth;
+    const leftX  = -(fw / 2 - p.holeInset);
+    const rightX =   fw / 2 - p.holeInset;
+    const slotZCenter = fd + SLOT_DEPTH_MM / 2;
 
-// ---------------------------------------------------------------------------
-// Main builder
-// ---------------------------------------------------------------------------
-
-export function buildBracket(p: BracketParams): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = [];
-
-  const faceplate = buildFaceplate(p);
-  parts.push(faceplate.toNonIndexed());
-  faceplate.dispose();
-
-  const shelf = buildShelf(p);
-  if (shelf) {
-    parts.push(shelf.toNonIndexed());
-    shelf.dispose();
+    for (const pos of positions) {
+      const topY    = pos.y + p.holeDiameter / 2 + slotH / 2;
+      const bottomY = pos.y - p.holeDiameter / 2 - slotH / 2;
+      for (const hx of [leftX, rightX]) {
+        parts.push(Manifold.cube([slotW, slotH, SLOT_DEPTH_MM], true).translate([hx, topY,    slotZCenter]));
+        parts.push(Manifold.cube([slotW, slotH, SLOT_DEPTH_MM], true).translate([hx, bottomY, slotZCenter]));
+      }
+    }
   }
 
-  const slots = buildRailSlots(p);
-  if (slots) {
-    parts.push(slots.toNonIndexed());
-    slots.dispose();
+  // Union all positive volumes
+  let solid = Manifold.union(parts);
+
+  // --- Subtract cutout opening ---
+  if (cw > 0 && ch > 0) {
+    // Extend slightly beyond both faces to ensure a clean cut
+    const cutout = Manifold.cube([cw, ch, fd + 0.2], true)
+      .translate([0, 0, fd / 2]);
+    solid = solid.subtract(cutout);
   }
 
-  if (parts.length === 1) {
-    // Single part — still weld any degenerate coincident vertices from ExtrudeGeometry
-    const welded = mergeVertices(parts[0], 0.001);
-    parts[0].dispose();
-    return welded;
+  // --- Subtract mounting holes ---
+  if (positions.length > 0) {
+    const holeR  = p.holeDiameter / 2;
+    const leftX  = -(fw / 2 - p.holeInset);
+    const rightX =   fw / 2 - p.holeInset;
+    const holeCylinders: ReturnType<typeof Manifold.cylinder>[] = [];
+
+    for (const pos of positions) {
+      for (const hx of [leftX, rightX]) {
+        // Cylinder along Z: bottom at -0.1, top at fd+0.1 for clean punch-through
+        holeCylinders.push(
+          Manifold.cylinder(fd + 0.2, holeR, holeR, 32)
+            .translate([hx, pos.y, -0.1])
+        );
+      }
+    }
+    solid = solid.subtract(Manifold.union(holeCylinders));
   }
 
-  const merged = mergeGeometries(parts);
-  parts.forEach((g) => g.dispose());
-  if (!merged) return buildFaceplate(p);
-
-  const welded = mergeVertices(merged, 0.001);
-  merged.dispose();
-  return welded;
+  return manifoldToGeo(solid);
 }

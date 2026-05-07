@@ -1,14 +1,22 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import * as THREE from 'three';
 import { useBracketStore } from '../store/bracketStore';
-import { buildBracket, faceplateWidth } from '../geometry/bracket';
+import { buildBracket, faceplateWidth, manifoldReady } from '../geometry/bracket';
 
 function BracketMesh() {
   const params = useBracketStore((s) => s.params);
+  const [ready, setReady] = useState(false);
 
-  const geometry = useMemo(() => buildBracket(params), [params]);
+  useEffect(() => {
+    manifoldReady.then(() => setReady(true));
+  }, []);
+
+  const geometry = useMemo(
+    () => (ready ? buildBracket(params) : new THREE.BufferGeometry()),
+    [params, ready]
+  );
 
   useEffect(() => {
     return () => {
@@ -19,7 +27,7 @@ function BracketMesh() {
   return (
     <group>
       <mesh geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.3} />
+        <meshLambertMaterial color="#94a3b8" />
       </mesh>
     </group>
   );

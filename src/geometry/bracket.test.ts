@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { Box3, Vector3 } from 'three';
 import {
   buildBracket,
@@ -7,8 +7,13 @@ import {
   holeCount,
   holePositions,
   hexHolePaths,
+  manifoldReady,
 } from './bracket';
 import { DEFAULT_PARAMS, bracketParamsSchema } from '../models/bracketParams';
+
+beforeAll(async () => {
+  await manifoldReady;
+});
 
 // ---------------------------------------------------------------------------
 // Derived functions
