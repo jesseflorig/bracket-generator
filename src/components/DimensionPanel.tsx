@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { useBracketStore } from '../store/bracketStore';
 import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
-import {
-  faceplateWidth,
-  shelfMaxWidth,
-} from '../geometry/bracket';
+import { faceplateWidth } from '../geometry/bracket';
 import { DimensionSlider } from './DimensionSlider';
 import { UnitToggle } from './UnitToggle';
 import { fromMm } from '../units/convert';
@@ -27,19 +24,31 @@ function ReadOnlyField({
   label,
   valueMm,
   unitSystem,
+  derived = true,
 }: {
   label: string;
   valueMm: number;
   unitSystem: 'mm' | 'in';
+  derived?: boolean;
 }) {
-  const displayed = fromMm(valueMm, unitSystem).toFixed(3);
+  const displayed = fromMm(valueMm, unitSystem).toFixed(2);
   const unit = unitSystem === 'in' ? '"' : 'mm';
   return (
     <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
       <span>{label}</span>
       <span className="font-mono text-zinc-400">
-        {displayed} {unit} <span className="text-zinc-600">(derived)</span>
+        {displayed} {unit}
+        {derived && <span className="text-zinc-600"> (derived)</span>}
       </span>
+    </div>
+  );
+}
+
+function ReadOnlyTextField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
+      <span>{label}</span>
+      <span className="font-mono text-zinc-400">{value}</span>
     </div>
   );
 }
@@ -60,7 +69,9 @@ export function DimensionPanel() {
   const errors = flattenZodErrors(params);
 
   const fw = faceplateWidth(params);
-  const smw = shelfMaxWidth(params);
+  const shelfWidth = params.cutoutWidth + 2 * params.shelfWallThickness;
+  const shelfWidthPercent = params.rackWidth > 0 ? (shelfWidth / params.rackWidth) * 100 : 0;
+  const widthBudgetLabel = `${shelfWidthPercent.toFixed(2)}%`;
 
   return (
     <div className="flex flex-col h-full">
@@ -104,7 +115,7 @@ export function DimensionPanel() {
               </svg>
             </button>
           </div>
-          <ReadOnlyField label="Faceplate Width" valueMm={fw} unitSystem={unitSystem} />
+          <ReadOnlyField label="Faceplate Width" valueMm={fw} unitSystem={unitSystem} derived={false} />
         </div>
 
         {/* Faceplate */}
@@ -165,7 +176,9 @@ export function DimensionPanel() {
             unitSystem={unitSystem}
             error={errors.shelfWallThickness}
           />
-          <ReadOnlyField label="Max Inner Width" valueMm={smw} unitSystem={unitSystem} />
+          <ReadOnlyField label="Rack Width" valueMm={params.rackWidth} unitSystem={unitSystem} derived={false} />
+          <ReadOnlyField label="Shelf Width" valueMm={shelfWidth} unitSystem={unitSystem} derived={false} />
+          <ReadOnlyTextField label="Width Budget" value={widthBudgetLabel} />
         </div>
 
         {/* Hex Mesh */}
