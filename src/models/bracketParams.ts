@@ -11,6 +11,7 @@ export const bracketParamsSchema = z
     faceplateDepth: z.number().min(1.5875).max(6.35),
     cornerRadius: z.number().min(0).max(63.5),
     // Shelf
+    shelfCount: z.number().int().min(0).max(10),
     shelfWallThickness: z.number().min(1.0).max(6.35),
     cutoutWidth: z.number().min(0).max(500),
     cutoutHeight: z.number().min(0).max(200),
@@ -29,6 +30,9 @@ export const bracketParamsSchema = z
   })
   .superRefine((d, ctx) => {
     const fw = d.rackWidth + 2 * d.railWidth;
+    const totalShelfWidth = d.shelfCount > 0 
+      ? (d.shelfCount * d.cutoutWidth) + ((d.shelfCount + 1) * d.shelfWallThickness)
+      : 0;
 
     if (d.cornerRadius > Math.min(d.faceplateHeight, fw) / 2) {
       ctx.addIssue({
@@ -38,18 +42,18 @@ export const bracketParamsSchema = z
       });
     }
 
-    if (d.shelfWallThickness * 2 >= d.rackWidth) {
+    if (totalShelfWidth > d.rackWidth) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Wall thickness too large for rack width',
-        path: ['shelfWallThickness'],
+        message: 'Total shelf width exceeds rack width',
+        path: ['shelfCount'],
       });
     }
 
-    if (d.cutoutWidth > fw - 2 * d.shelfWallThickness) {
+    if (d.shelfCount > 0 && d.cutoutWidth > (d.rackWidth - (d.shelfCount + 1) * d.shelfWallThickness) / d.shelfCount) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Cutout too wide for faceplate',
+        message: 'Cutout too wide for shelf count and rack width',
         path: ['cutoutWidth'],
       });
     }
@@ -97,6 +101,7 @@ export const DEFAULT_PARAMS: BracketParams = {
   faceplateHeight: 31.75,    // 1.25"
   faceplateDepth: 3.175,     // 0.125"
   cornerRadius: 1.0,         // 1mm
+  shelfCount: 1,
   shelfWallThickness: 3.175, // 0.125"
   cutoutWidth: 127.0,        // 5.0"
   cutoutHeight: 19.05,       // 0.75"

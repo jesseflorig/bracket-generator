@@ -31,8 +31,14 @@ describe('faceplateWidth', () => {
 });
 
 describe('shelfMaxWidth', () => {
-  it('equals rackWidth − 2 * shelfWallThickness at defaults', () => {
+  it('equals rackWidth − 2 * shelfWallThickness at defaults (shelfCount=1)', () => {
     expect(shelfMaxWidth(DEFAULT_PARAMS)).toBeCloseTo(165.1 - 2 * 3.175, 3);
+  });
+
+  it('equals (rackWidth - 3*thickness)/2 for shelfCount=2', () => {
+    const p = { ...DEFAULT_PARAMS, shelfCount: 2 };
+    const expected = (165.1 - 3 * 3.175) / 2;
+    expect(shelfMaxWidth(p)).toBeCloseTo(expected, 3);
   });
 });
 
@@ -164,7 +170,7 @@ describe('buildBracket — shelf geometry aligned to cutout', () => {
     geo.dispose();
   });
 
-  it('shelf X outer span equals cutoutWidth + 2 * shelfWallThickness', () => {
+  it('shelf X outer span equals total block width (shelfCount=1)', () => {
     const geo = buildBracket(DEFAULT_PARAMS);
     const positions = geo.getAttribute('position');
     const fd = DEFAULT_PARAMS.faceplateDepth;
@@ -177,6 +183,24 @@ describe('buildBracket — shelf geometry aligned to cutout', () => {
       }
     }
     const expectedSpan = DEFAULT_PARAMS.cutoutWidth + 2 * DEFAULT_PARAMS.shelfWallThickness;
+    expect(maxX - minX).toBeCloseTo(expectedSpan, 2);
+    geo.dispose();
+  });
+
+  it('shelf X outer span equals total block width (shelfCount=2)', () => {
+    const p = { ...DEFAULT_PARAMS, shelfCount: 2, cutoutWidth: 50 };
+    const geo = buildBracket(p);
+    const positions = geo.getAttribute('position');
+    const fd = p.faceplateDepth;
+    const SLOT_DEPTH_MM = 2.032;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < positions.count; i++) {
+      if (positions.getZ(i) > fd + SLOT_DEPTH_MM + 0.01) {
+        minX = Math.min(minX, positions.getX(i));
+        maxX = Math.max(maxX, positions.getX(i));
+      }
+    }
+    const expectedSpan = 2 * p.cutoutWidth + 3 * p.shelfWallThickness;
     expect(maxX - minX).toBeCloseTo(expectedSpan, 2);
     geo.dispose();
   });
@@ -227,12 +251,17 @@ describe('bracketParamsSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects cutoutWidth exceeding faceplate interior', () => {
+  it('rejects total shelf width exceeding rackWidth', () => {
     const result = bracketParamsSchema.safeParse({
       ...DEFAULT_PARAMS,
-      cutoutWidth: 300, // larger than faceplateWidth - 2*wallThickness
+      shelfCount: 2,
+      cutoutWidth: 100, // 2*100 + 3*3.175 = 209.525 > 165.1
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts zero shelfCount', () => {
+    expect(bracketParamsSchema.safeParse({ ...DEFAULT_PARAMS, shelfCount: 0 }).success).toBe(true);
   });
 
   it('rejects cutoutHeight exceeding faceplate interior', () => {

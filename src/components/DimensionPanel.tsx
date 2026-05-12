@@ -69,8 +69,10 @@ export function DimensionPanel() {
   const errors = flattenZodErrors(params);
 
   const fw = faceplateWidth(params);
-  const shelfWidth = params.cutoutWidth + 2 * params.shelfWallThickness;
-  const shelfWidthPercent = params.rackWidth > 0 ? (shelfWidth / params.rackWidth) * 100 : 0;
+  const totalShelfWidth = params.shelfCount > 0 
+    ? (params.shelfCount * params.cutoutWidth) + ((params.shelfCount + 1) * params.shelfWallThickness)
+    : 0;
+  const shelfWidthPercent = params.rackWidth > 0 ? (totalShelfWidth / params.rackWidth) * 100 : 0;
   const widthBudgetLabel = `${shelfWidthPercent.toFixed(2)}%`;
 
   return (
@@ -136,7 +138,18 @@ export function DimensionPanel() {
         <div>
           <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Cutout</p>
           <DimensionSlider
-            label="Width"
+            label="Count"
+            valueMm={params.shelfCount}
+            onChange={(v) => handleChange('shelfCount', v)}
+            minMm={0}
+            maxMm={10}
+            isUnitless
+            isInteger
+            unitSystem={unitSystem}
+            error={errors.shelfCount}
+          />
+          <DimensionSlider
+            label="Width (per shelf)"
             valueMm={params.cutoutWidth}
             onChange={(v) => handleChange('cutoutWidth', v)}
             minMm={0}
@@ -177,7 +190,7 @@ export function DimensionPanel() {
             error={errors.shelfWallThickness}
           />
           <ReadOnlyField label="Rack Width" valueMm={params.rackWidth} unitSystem={unitSystem} derived={false} />
-          <ReadOnlyField label="Shelf Width" valueMm={shelfWidth} unitSystem={unitSystem} derived={false} />
+          <ReadOnlyField label="Total Shelf Width" valueMm={totalShelfWidth} unitSystem={unitSystem} derived={false} />
           <ReadOnlyTextField label="Width Budget" value={widthBudgetLabel} />
         </div>
 
