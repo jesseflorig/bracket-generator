@@ -27,6 +27,9 @@ export const bracketParamsSchema = z
     hexHoleGap: z.number().min(0).max(25.4),           // edge-to-edge gap between holes, mm
     hexHoleInset: z.number().min(0).max(50.8),          // inset margin from wall edges, mm
     hexMeshFloor: z.boolean(),                           // apply hex mesh to floor panel
+    // Mode
+    mode: z.enum(['shelf', 'keystone']).default('shelf'),
+    keystoneCount: z.number().int().min(1).max(24).default(8),
   })
   .superRefine((d, ctx) => {
     const fw = d.rackWidth + 2 * d.railWidth;
@@ -34,35 +37,71 @@ export const bracketParamsSchema = z
       ? (d.shelfCount * d.cutoutWidth) + ((d.shelfCount + 1) * d.shelfWallThickness)
       : 0;
 
+    if (d.mode === 'shelf') {
+      if (totalShelfWidth > d.rackWidth) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Total shelf width exceeds rack width',
+          path: ['shelfCount'],
+        });
+      }
+
+      if (d.shelfCount > 0 && d.cutoutWidth > (d.rackWidth - (d.shelfCount + 1) * d.shelfWallThickness) / d.shelfCount) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Cutout too wide for shelf count and rack width',
+          path: ['cutoutWidth'],
+        });
+      }
+
+      if (d.cutoutHeight > d.faceplateHeight - 2 * d.shelfWallThickness) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Cutout too tall for faceplate',
+          path: ['cutoutHeight'],
+        });
+      }
+
+      // Left hole center is at -(fw/2 - holeInset); its right edge at that + holeDiameter/2.
+      // Cutout left edge is at -cutoutWidth/2. Overlap when cutoutWidth > fw - 2*holeInset - holeDiameter.
+      if (d.cutoutWidth > 0 && d.cutoutWidth > fw - 2 * d.holeInset - d.holeDiameter) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Mounting holes overlap the cutout opening',
+          path: ['holeDiameter'],
+        });
+      }
+    }
+
+    if (d.mode === 'keystone') {
+      const KEYSTONE_W = 14.8;
+      const KEYSTONE_H = 16.2;
+      const MIN_GAP = 4.0;
+      const safeWidth = fw - 2 * d.holeInset - d.holeDiameter - 10; // 10mm buffer
+      const totalKeystoneWidth = d.keystoneCount * KEYSTONE_W + (d.keystoneCount - 1) * MIN_GAP;
+      
+      if (totalKeystoneWidth > safeWidth) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Too many keystones for the available faceplate width',
+          path: ['keystoneCount'],
+        });
+      }
+
+      if (KEYSTONE_H > d.faceplateHeight - 4) { // 2mm margin top/bottom
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Faceplate too short for keystone jacks',
+          path: ['faceplateHeight'],
+        });
+      }
+    }
+
     if (d.cornerRadius > Math.min(d.faceplateHeight, fw) / 2) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Corner radius too large for faceplate dimensions',
         path: ['cornerRadius'],
-      });
-    }
-
-    if (totalShelfWidth > d.rackWidth) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Total shelf width exceeds rack width',
-        path: ['shelfCount'],
-      });
-    }
-
-    if (d.shelfCount > 0 && d.cutoutWidth > (d.rackWidth - (d.shelfCount + 1) * d.shelfWallThickness) / d.shelfCount) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Cutout too wide for shelf count and rack width',
-        path: ['cutoutWidth'],
-      });
-    }
-
-    if (d.cutoutHeight > d.faceplateHeight - 2 * d.shelfWallThickness) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Cutout too tall for faceplate',
-        path: ['cutoutHeight'],
       });
     }
 
@@ -79,16 +118,6 @@ export const bracketParamsSchema = z
         code: z.ZodIssueCode.custom,
         message: 'Edge offset must be greater than hole radius',
         path: ['holeEdgeOffset'],
-      });
-    }
-
-    // Left hole center is at -(fw/2 - holeInset); its right edge at that + holeDiameter/2.
-    // Cutout left edge is at -cutoutWidth/2. Overlap when cutoutWidth > fw - 2*holeInset - holeDiameter.
-    if (d.cutoutWidth > 0 && d.cutoutWidth > fw - 2 * d.holeInset - d.holeDiameter) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Mounting holes overlap the cutout opening',
-        path: ['holeDiameter'],
       });
     }
   });
@@ -114,6 +143,8 @@ export const DEFAULT_PARAMS: BracketParams = {
   hexHoleGap: 1.5875,        // 0.0625"
   hexHoleInset: 3.175,       // 0.125"
   hexMeshFloor: false,
+  mode: 'shelf',
+  keystoneCount: 8,
 };
 
 export interface ExportPayload {

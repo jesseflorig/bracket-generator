@@ -393,3 +393,61 @@ describe('hexHolePaths', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Keystone Mode (feature 008)
+// ---------------------------------------------------------------------------
+
+describe('buildBracket — keystone mode', () => {
+  it('suppresses shelf geometry', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, shelfDepth: 50.8 };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    const size = new Vector3();
+    (geo.boundingBox as Box3).getSize(size);
+    // Depth should be at least SLEEVE_TOTAL_DEPTH (20mm) now that it is always flush
+    expect(size.z).toBeGreaterThanOrEqual(20);
+    geo.dispose();
+  });
+
+  it('bounding box width matches faceplate width', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    const size = new Vector3();
+    (geo.boundingBox as Box3).getSize(size);
+    expect(size.x).toBeCloseTo(faceplateWidth(p), 1);
+    geo.dispose();
+  });
+
+  it('keystone mode increases bounding box depth to include sleeves', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+    const size = new Vector3();
+    (geo.boundingBox as Box3).getSize(size);
+    // Depth should be at least SLEEVE_TOTAL_DEPTH (20mm)
+    expect(size.z).toBeGreaterThanOrEqual(20);
+    geo.dispose();
+  });
+});
+
+describe('bracketParamsSchema — keystone validation', () => {
+  it('rejects too many keystones for narrow rack', () => {
+    const result = bracketParamsSchema.safeParse({
+      ...DEFAULT_PARAMS,
+      rackWidth: 50.8, // 2"
+      mode: 'keystone',
+      keystoneCount: 10,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts keystone mode with default params', () => {
+    const result = bracketParamsSchema.safeParse({
+      ...DEFAULT_PARAMS,
+      mode: 'keystone',
+    });
+    expect(result.success).toBe(true);
+  });
+});

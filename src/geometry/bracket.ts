@@ -203,6 +203,12 @@ function hexWallCrossSection(faceW: number, faceH: number, p: BracketParams) {
 // ---------------------------------------------------------------------------
 
 const SLOT_DEPTH_MM = 2.032; // 0.08"
+const KEYSTONE_W = 14.8;
+const KEYSTONE_H = 16.5;
+const KEYSTONE_NOTCH_H = 19.4;
+const KEYSTONE_PANEL_THICKNESS = 1.6;
+const FLUSH_DEPTH = 9.5;
+const SLEEVE_TOTAL_DEPTH = 20.0;
 
 export function buildBracket(p: BracketParams): THREE.BufferGeometry {
   const { Manifold, CrossSection } = lib();
@@ -214,14 +220,43 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
   const ch = p.cutoutHeight;
   const t  = p.shelfWallThickness;
 
+  const isKeystoneMode = p.mode === 'keystone';
+  const effectiveClipLandingZ = isKeystoneMode ? FLUSH_DEPTH : 0;
+  const clipDepth = effectiveClipLandingZ + KEYSTONE_PANEL_THICKNESS;
+
   // --- Faceplate body ---
   const fpPoly = roundedRectPolygon(0, 0, fw, fh, p.cornerRadius, 8);
   const fpBody = new CrossSection([fpPoly]).extrude(fd);
 
   const parts: ReturnType<typeof Manifold.cube>[] = [fpBody];
 
+  // --- Keystone sleeves ---
+  if (isKeystoneMode) {
+    const kCount = p.keystoneCount;
+    const leftHoleX = -(fw / 2 - p.holeInset);
+    const rightHoleX = fw / 2 - p.holeInset;
+    const innerLeft = leftHoleX + p.holeDiameter / 2 + 5;
+    const innerRight = rightHoleX - p.holeDiameter / 2 - 5;
+    const availableW = innerRight - innerLeft;
+    const gap = (availableW - kCount * KEYSTONE_W) / (kCount + 1);
+
+    const sleeveW = KEYSTONE_W + 4;
+    const sleeveH = KEYSTONE_NOTCH_H + 4;
+    // Sleeve depth should be enough to house the clips
+    const sleeveDepth = Math.max(clipDepth, SLEEVE_TOTAL_DEPTH) - fd;
+
+    if (sleeveDepth > 0) {
+      for (let i = 0; i < kCount; i++) {
+        const kx = innerLeft + gap + KEYSTONE_W / 2 + i * (KEYSTONE_W + gap);
+        const sleeve = Manifold.cube([sleeveW, sleeveH, sleeveDepth], true)
+          .translate([kx, 0, fd + sleeveDepth / 2]);
+        parts.push(sleeve);
+      }
+    }
+  }
+
   // --- Shelf walls and floors ---
-  const count = p.shelfCount;
+  const count = isKeystoneMode ? 0 : p.shelfCount;
   const hasShelf = count > 0 && p.shelfDepth > 0 && cw > 0 && ch > 0;
   if (hasShelf) {
     const depth = p.shelfDepth;
@@ -293,6 +328,35 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
       const cutout = Manifold.cube([cw, ch, fd + 0.2], true)
         .translate([cutoutX, 0, fd / 2]);
       solid = solid.subtract(cutout);
+    }
+  }
+
+  // --- Subtract keystone cutouts ---
+  if (isKeystoneMode) {
+    const kCount = p.keystoneCount;
+    const leftHoleX = -(fw / 2 - p.holeInset);
+    const rightHoleX = fw / 2 - p.holeInset;
+    const innerLeft = leftHoleX + p.holeDiameter / 2 + 5;
+    const innerRight = rightHoleX - p.holeDiameter / 2 - 5;
+    const availableW = innerRight - innerLeft;
+
+    const gap = (availableW - kCount * KEYSTONE_W) / (kCount + 1);
+    
+    for (let i = 0; i < kCount; i++) {
+      const kx = innerLeft + gap + KEYSTONE_W / 2 + i * (KEYSTONE_W + gap);
+      
+      // 1. Punch tight tunnel through entirely from front to the landing clip depth
+      const kHole = Manifold.cube([KEYSTONE_W, KEYSTONE_H, clipDepth + 0.4], true)
+        .translate([kx, 0, clipDepth / 2]);
+      solid = solid.subtract(kHole);
+
+      // 2. Subtract the clip expansion notch starting exactly after the 1.6mm landing
+      const recessW = KEYSTONE_W + 4;
+      const recessH = KEYSTONE_NOTCH_H;
+      const recessDepth = 100; // Plenty to clear any sleeve/faceplate
+      const recess = Manifold.cube([recessW, recessH, recessDepth], true)
+        .translate([kx, 0, clipDepth + recessDepth / 2]);
+      solid = solid.subtract(recess);
     }
   }
 

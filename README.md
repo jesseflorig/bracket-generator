@@ -11,6 +11,8 @@ A browser-based 3D bracket generator for designing rack-mount shelf brackets and
 - Rack profiles with editable rack width, rail width, mounting holes, rail slot width, faceplate depth, and corner radius
 - Unit toggle for millimeters and inches
 - Configurable faceplate height, cutout size, shelf depth, and shelf wall thickness
+- Dual generation modes: **Shelf** (for holding devices) and **Keystone** (for patch panel cutouts)
+- **Keystone Mode**: Automatic distribution of standard 14.8 x 16.2mm cutouts with automatic 1.6mm rear recess for secure snap-fit
 - Shelf width readouts for rack width, shelf width, and width budget
 - Optional hex mesh cutouts on shelf side walls and floor panel
 - STL and 3MF export for slicers

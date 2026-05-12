@@ -120,6 +120,26 @@ export function DimensionPanel() {
           <ReadOnlyField label="Faceplate Width" valueMm={fw} unitSystem={unitSystem} derived={false} />
         </div>
 
+        {/* Mode */}
+        <div>
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Generation Mode</p>
+          <div className="flex bg-zinc-800 p-1 rounded gap-1">
+            {(['shelf', 'keystone'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => handleChange('mode', m)}
+                className={`flex-1 py-1 text-[10px] uppercase tracking-wider font-semibold rounded transition-colors ${
+                  params.mode === m
+                    ? 'bg-zinc-600 text-zinc-100 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Faceplate */}
         <div>
           <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Faceplate</p>
@@ -132,10 +152,43 @@ export function DimensionPanel() {
             unitSystem={unitSystem}
             error={errors.faceplateHeight}
           />
+          <DimensionSlider
+            label="Depth"
+            valueMm={params.faceplateDepth}
+            onChange={(v) => handleChange('faceplateDepth', v)}
+            minMm={1.5875}
+            maxMm={6.35}
+            unitSystem={unitSystem}
+            error={errors.faceplateDepth}
+          />
         </div>
 
-        {/* Cutout */}
-        <div>
+        {params.mode === 'keystone' && (
+          <div>
+            <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Keystone Configuration</p>
+            <DimensionSlider
+              label="Keystone Count"
+              valueMm={params.keystoneCount}
+              onChange={(v) => handleChange('keystoneCount', v)}
+              minMm={1}
+              maxMm={24}
+              isUnitless
+              isInteger
+              unitSystem={unitSystem}
+              error={errors.keystoneCount}
+            />
+            <div className="p-2 bg-zinc-800/50 rounded border border-zinc-700/50">
+              <p className="text-[10px] text-zinc-500 leading-relaxed">
+                Standard 14.8 x 16.5mm cutouts. Adds a 9.5mm sleeve with internal clip landing so jack faces sit flush with the bracket.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {params.mode === 'shelf' && (
+          <>
+            {/* Cutout */}
+            <div>
           <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Cutout</p>
           <DimensionSlider
             label="Count"
@@ -234,8 +287,10 @@ export function DimensionPanel() {
             />
           </div>
         </div>
+      </>
+    )}
 
-      </div>
+  </div>
 
       {/* Reset */}
       <div className="px-4 py-2 border-t border-zinc-800">

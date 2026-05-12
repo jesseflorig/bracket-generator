@@ -38,10 +38,13 @@ function BracketMesh() {
   );
 }
 
-function CameraControls({ camDist, shelfDepth }: { camDist: number; shelfDepth: number }) {
+function CameraControls({ camDist, shelfDepth, faceplateDepth, isKeystone }: { camDist: number; shelfDepth: number; faceplateDepth: number; isKeystone: boolean }) {
   const { camera } = useThree();
   const controlsRef = useRef<{ target: THREE.Vector3; update: () => void } | null>(null);
-  const target = useMemo(() => new THREE.Vector3(0, 0, shelfDepth / 2), [shelfDepth]);
+  const target = useMemo(() => {
+    const depth = isKeystone ? faceplateDepth : shelfDepth;
+    return new THREE.Vector3(0, 0, depth / 2);
+  }, [shelfDepth, faceplateDepth, isKeystone]);
 
   const animating = useRef(false);
   const destPosition = useRef(new THREE.Vector3());
@@ -130,7 +133,12 @@ export function BracketViewer() {
           position={[0, -params.faceplateHeight / 2 - 0.9, 0]}
         />
 
-        <CameraControls camDist={camDist} shelfDepth={params.shelfDepth} />
+        <CameraControls 
+          camDist={camDist} 
+          shelfDepth={params.shelfDepth} 
+          faceplateDepth={params.faceplateDepth}
+          isKeystone={params.mode === 'keystone'}
+        />
 
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
           <GizmoViewport
