@@ -205,6 +205,27 @@ describe('buildBracket — shelf geometry aligned to cutout', () => {
     geo.dispose();
   });
 
+  it('shelf walls are correctly positioned at the edges of the block', () => {
+    const p = { ...DEFAULT_PARAMS, shelfCount: 1, cutoutWidth: 100, shelfWallThickness: 10 };
+    const geo = buildBracket(p);
+    const positions = geo.getAttribute('position');
+    const fd = p.faceplateDepth;
+    const SLOT_DEPTH_MM = 2.032;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < positions.count; i++) {
+      if (positions.getZ(i) > fd + SLOT_DEPTH_MM + 0.01) {
+        minX = Math.min(minX, positions.getX(i));
+        maxX = Math.max(maxX, positions.getX(i));
+      }
+    }
+    // tw = 1*100 + 2*10 = 120. startX = -60.
+    // Wall 0 center = -60 + 0 + 5 = -55. Left edge = -60, Right edge = -50.
+    // Wall 1 center = -60 + 110 + 5 = 55. Left edge = 50, Right edge = 60.
+    expect(minX).toBeCloseTo(-60, 1);
+    expect(maxX).toBeCloseTo(60, 1);
+    geo.dispose();
+  });
+
   it('shelf vertical extent matches cutoutHeight with bottom panel below', () => {
     const geo = buildBracket(DEFAULT_PARAMS);
     const positions = geo.getAttribute('position');
