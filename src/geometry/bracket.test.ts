@@ -405,8 +405,7 @@ describe('buildBracket — keystone mode', () => {
     geo.computeBoundingBox();
     const size = new Vector3();
     (geo.boundingBox as Box3).getSize(size);
-    // Depth should be at least SLEEVE_TOTAL_DEPTH (20mm) now that it is always flush
-    expect(size.z).toBeGreaterThanOrEqual(20);
+    expect(size.z).toBeLessThan(p.shelfDepth);
     geo.dispose();
   });
 
@@ -420,14 +419,115 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone mode increases bounding box depth to include sleeves', () => {
+  it('keystone mode adds a 10mm sleeve with a top step after 6.4mm', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const };
     const geo = buildBracket(p);
     geo.computeBoundingBox();
     const size = new Vector3();
     (geo.boundingBox as Box3).getSize(size);
-    // Depth should be at least SLEEVE_TOTAL_DEPTH (20mm)
-    expect(size.z).toBeGreaterThanOrEqual(20);
+    expect(size.z).toBeCloseTo(10.0, 3);
+    geo.dispose();
+  });
+
+  it('keystone opening is square at the front face without a bottom chamfer', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    let tunnelMinY = Infinity, tunnelMaxY = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      // Tunnel vertices at hole edges (+/- 7.4)
+      if (Math.abs(Math.abs(x) - 7.4) < 0.1) {
+        if (Math.abs(z - 0) < 0.1) {
+          if (Math.abs(y) < 10.0) {
+            tunnelMinY = Math.min(tunnelMinY, y);
+            tunnelMaxY = Math.max(tunnelMaxY, y);
+          }
+        }
+      }
+    }
+
+    expect(tunnelMaxY - tunnelMinY).toBeCloseTo(16.2, 0.5);
+
+    geo.dispose();
+  });
+
+  it('keystone rear sleeve opening steps upward by 3.4mm after the square section', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    let rearMinY = Infinity, rearMaxY = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (Math.abs(Math.abs(x) - 7.4) < 0.1 && Math.abs(z - 10.0) < 0.1) {
+        if (y > -9.0 && y < 12.0) {
+          rearMinY = Math.min(rearMinY, y);
+          rearMaxY = Math.max(rearMaxY, y);
+        }
+      }
+    }
+
+    expect(rearMinY).toBeCloseTo(-8.1, 0.5);
+    expect(rearMaxY).toBeCloseTo(11.5, 0.5);
+
+    geo.dispose();
+  });
+
+  it('keystone sleeve raised top wall extends to the back of the faceplate', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    let sleeveTopAtFaceplateBack = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (Math.abs(Math.abs(x) - 10.57) < 0.1 && Math.abs(z - p.faceplateDepth) < 0.1) {
+        if (y > 10.0 && y < 15.0) {
+          sleeveTopAtFaceplateBack = Math.max(sleeveTopAtFaceplateBack, y);
+        }
+      }
+    }
+
+    expect(sleeveTopAtFaceplateBack).toBeCloseTo(14.67, 0.5);
+
+    geo.dispose();
+  });
+
+  it('keystone sleeve has a 10.7mm by 2mm vertical cutout at the step depth', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    let slotMinZ = Infinity, slotMaxZ = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (Math.abs(Math.abs(x) - 5.35) < 0.1 && y > 11.0 && z > 6.0 && z < 9.0) {
+        slotMinZ = Math.min(slotMinZ, z);
+        slotMaxZ = Math.max(slotMaxZ, z);
+      }
+    }
+
+    expect(slotMinZ).toBeCloseTo(6.4, 0.5);
+    expect(slotMaxZ).toBeCloseTo(8.4, 0.5);
+
     geo.dispose();
   });
 });

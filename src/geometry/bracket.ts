@@ -204,11 +204,13 @@ function hexWallCrossSection(faceW: number, faceH: number, p: BracketParams) {
 
 const SLOT_DEPTH_MM = 2.032; // 0.08"
 const KEYSTONE_W = 14.8;
-const KEYSTONE_H = 16.5;
-const KEYSTONE_NOTCH_H = 19.4;
-const KEYSTONE_PANEL_THICKNESS = 1.6;
-const FLUSH_DEPTH = 9.5;
-const SLEEVE_TOTAL_DEPTH = 20.0;
+const KEYSTONE_H = 16.2;
+const KEYSTONE_STEP_DEPTH = 6.4;
+const KEYSTONE_SLEEVE_DEPTH = 10.0;
+const KEYSTONE_TOP_STEP = 3.4;
+const KEYSTONE_SLEEVE_WALL = 3.17;
+const KEYSTONE_VERTICAL_CUTOUT_W = 10.7;
+const KEYSTONE_VERTICAL_CUTOUT_DEPTH = 2.0;
 
 export function buildBracket(p: BracketParams): THREE.BufferGeometry {
   const { Manifold, CrossSection } = lib();
@@ -221,8 +223,6 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
   const t  = p.shelfWallThickness;
 
   const isKeystoneMode = p.mode === 'keystone';
-  const effectiveClipLandingZ = isKeystoneMode ? FLUSH_DEPTH : 0;
-  const clipDepth = effectiveClipLandingZ + KEYSTONE_PANEL_THICKNESS;
 
   // --- Faceplate body ---
   const fpPoly = roundedRectPolygon(0, 0, fw, fh, p.cornerRadius, 8);
@@ -230,7 +230,7 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
 
   const parts: ReturnType<typeof Manifold.cube>[] = [fpBody];
 
-  // --- Keystone sleeves ---
+  // --- Keystone sleeve collars ---
   if (isKeystoneMode) {
     const kCount = p.keystoneCount;
     const leftHoleX = -(fw / 2 - p.holeInset);
@@ -239,18 +239,18 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
     const innerRight = rightHoleX - p.holeDiameter / 2 - 5;
     const availableW = innerRight - innerLeft;
     const gap = (availableW - kCount * KEYSTONE_W) / (kCount + 1);
+    const sleeveDepth = Math.max(0, KEYSTONE_SLEEVE_DEPTH - fd);
 
-    const sleeveW = KEYSTONE_W + 4;
-    const sleeveH = KEYSTONE_NOTCH_H + 4;
-    // Sleeve depth should be enough to house the clips
-    const sleeveDepth = Math.max(clipDepth, SLEEVE_TOTAL_DEPTH) - fd;
+    const sleeveW = KEYSTONE_W + 2 * KEYSTONE_SLEEVE_WALL;
+    const sleeveH = KEYSTONE_H + KEYSTONE_TOP_STEP + 2 * KEYSTONE_SLEEVE_WALL;
 
     if (sleeveDepth > 0) {
       for (let i = 0; i < kCount; i++) {
         const kx = innerLeft + gap + KEYSTONE_W / 2 + i * (KEYSTONE_W + gap);
-        const sleeve = Manifold.cube([sleeveW, sleeveH, sleeveDepth], true)
-          .translate([kx, 0, fd + sleeveDepth / 2]);
-        parts.push(sleeve);
+        parts.push(
+          Manifold.cube([sleeveW, sleeveH, sleeveDepth], true)
+            .translate([kx, KEYSTONE_TOP_STEP / 2, fd + sleeveDepth / 2])
+        );
       }
     }
   }
@@ -345,18 +345,25 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
     for (let i = 0; i < kCount; i++) {
       const kx = innerLeft + gap + KEYSTONE_W / 2 + i * (KEYSTONE_W + gap);
       
-      // 1. Punch tight tunnel through entirely from front to the landing clip depth
-      const kHole = Manifold.cube([KEYSTONE_W, KEYSTONE_H, clipDepth + 0.4], true)
-        .translate([kx, 0, clipDepth / 2]);
+      // 1. Punch the square keystone opening through the faceplate and first sleeve stage
+      const squareCutDepth = Math.max(fd, KEYSTONE_STEP_DEPTH);
+      const kHole = Manifold.cube([KEYSTONE_W, KEYSTONE_H, squareCutDepth + 0.4], true)
+        .translate([kx, 0, squareCutDepth / 2]);
       solid = solid.subtract(kHole);
 
-      // 2. Subtract the clip expansion notch starting exactly after the 1.6mm landing
-      const recessW = KEYSTONE_W + 4;
-      const recessH = KEYSTONE_NOTCH_H;
-      const recessDepth = 100; // Plenty to clear any sleeve/faceplate
-      const recess = Manifold.cube([recessW, recessH, recessDepth], true)
-        .translate([kx, 0, clipDepth + recessDepth / 2]);
-      solid = solid.subtract(recess);
+      // 2. Step the top of the rear sleeve section up after the square opening depth
+      const steppedCutDepth = KEYSTONE_SLEEVE_DEPTH - KEYSTONE_STEP_DEPTH;
+      if (steppedCutDepth > 0) {
+        const steppedHole = Manifold.cube([KEYSTONE_W, KEYSTONE_H + KEYSTONE_TOP_STEP, steppedCutDepth], true)
+          .translate([kx, KEYSTONE_TOP_STEP / 2, KEYSTONE_STEP_DEPTH + steppedCutDepth / 2]);
+        solid = solid.subtract(steppedHole);
+      }
+
+      // 3. Cut a vertical slot through the sleeve wall starting at the step depth
+      const verticalSlotH = KEYSTONE_H + KEYSTONE_TOP_STEP + 2 * KEYSTONE_SLEEVE_WALL + 0.4;
+      const verticalSlot = Manifold.cube([KEYSTONE_VERTICAL_CUTOUT_W, verticalSlotH, KEYSTONE_VERTICAL_CUTOUT_DEPTH], true)
+        .translate([kx, KEYSTONE_TOP_STEP / 2, KEYSTONE_STEP_DEPTH + KEYSTONE_VERTICAL_CUTOUT_DEPTH / 2]);
+      solid = solid.subtract(verticalSlot);
     }
   }
 

@@ -179,7 +179,7 @@ export function DimensionPanel() {
             />
             <div className="p-2 bg-zinc-800/50 rounded border border-zinc-700/50">
               <p className="text-[10px] text-zinc-500 leading-relaxed">
-                Standard 14.8 x 16.5mm cutouts. Adds a 9.5mm sleeve with internal clip landing so jack faces sit flush with the bracket.
+                Standard 14.8 x 16.2mm cutouts with a 10mm stepped jack sleeve.
               </p>
             </div>
           </div>
