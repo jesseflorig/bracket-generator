@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useBracketStore } from '../store/bracketStore';
 import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
-import { faceplateWidth } from '../geometry/bracket';
+import { faceplateWidth, keystoneExteriorWidth } from '../geometry/bracket';
 import { DimensionSlider } from './DimensionSlider';
 import { UnitToggle } from './UnitToggle';
 import { fromMm } from '../units/convert';
@@ -74,6 +74,9 @@ export function DimensionPanel() {
     : 0;
   const shelfWidthPercent = params.rackWidth > 0 ? (totalShelfWidth / params.rackWidth) * 100 : 0;
   const widthBudgetLabel = `${shelfWidthPercent.toFixed(2)}%`;
+  const totalKeystoneExteriorWidth = keystoneExteriorWidth(params);
+  const keystoneWidthPercent = params.rackWidth > 0 ? (totalKeystoneExteriorWidth / params.rackWidth) * 100 : 0;
+  const keystoneWidthBudgetLabel = `${keystoneWidthPercent.toFixed(2)}%`;
 
   return (
     <div className="flex flex-col h-full">
@@ -177,6 +180,19 @@ export function DimensionPanel() {
               unitSystem={unitSystem}
               error={errors.keystoneCount}
             />
+            <ReadOnlyField
+              label="Rack Width"
+              valueMm={params.rackWidth}
+              unitSystem={unitSystem}
+              derived={false}
+            />
+            <ReadOnlyField
+              label="Total Exterior Width"
+              valueMm={totalKeystoneExteriorWidth}
+              unitSystem={unitSystem}
+              derived={false}
+            />
+            <ReadOnlyTextField label="Width Budget" value={keystoneWidthBudgetLabel} />
             <div className="p-2 bg-zinc-800/50 rounded border border-zinc-700/50">
               <p className="text-[10px] text-zinc-500 leading-relaxed">
                 Standard 14.8 x 16.2mm cutouts with a 10mm stepped jack sleeve.

@@ -3,6 +3,7 @@ import { Box3, Vector3 } from 'three';
 import {
   buildBracket,
   faceplateWidth,
+  keystoneExteriorWidth,
   shelfMaxWidth,
   holeCount,
   holePositions,
@@ -39,6 +40,27 @@ describe('shelfMaxWidth', () => {
     const p = { ...DEFAULT_PARAMS, shelfCount: 2 };
     const expected = (165.1 - 3 * 3.175) / 2;
     expect(shelfMaxWidth(p)).toBeCloseTo(expected, 3);
+  });
+});
+
+describe('keystoneExteriorWidth', () => {
+  it('includes sleeve thickness on both exterior ends', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
+    expect(keystoneExteriorWidth(p)).toBeCloseTo(14.8 + 2 * 1.5, 3);
+  });
+
+  it('uses standard spacing for eight keystones', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 8 };
+    const fw = faceplateWidth(p);
+    const leftHoleX = -(fw / 2 - p.holeInset);
+    const rightHoleX = fw / 2 - p.holeInset;
+    const innerLeft = leftHoleX + p.holeDiameter / 2 + 5;
+    const innerRight = rightHoleX - p.holeDiameter / 2 - 5;
+    const availableW = innerRight - innerLeft;
+    const gap = (availableW - p.keystoneCount * 14.8) / (p.keystoneCount + 1);
+    const expected = p.keystoneCount * 14.8 + (p.keystoneCount - 1) * gap + 2 * 1.5;
+
+    expect(keystoneExteriorWidth(p)).toBeCloseTo(expected, 3);
   });
 });
 
@@ -419,7 +441,7 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone mode adds a 10mm sleeve with a top step after 6.4mm', () => {
+  it('keystone mode adds a 10mm sleeve with a top step at 0.7mm depth', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const };
     const geo = buildBracket(p);
     geo.computeBoundingBox();
@@ -457,6 +479,36 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
+  it('keystone count 8 keeps sleeves separated between openings', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 8 };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+    const edgeXs: number[] = [];
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (Math.abs(z - 0) < 0.1 && Math.abs(Math.abs(y) - 8.1) < 0.1 && Math.abs(x) < 90) {
+        edgeXs.push(Number(x.toFixed(2)));
+      }
+    }
+
+    const uniqueEdges = Array.from(new Set(edgeXs)).sort((a, b) => a - b);
+    const gaps: number[] = [];
+    for (let i = 1; i < 8; i++) {
+      gaps.push(uniqueEdges[2 * i] - uniqueEdges[2 * i - 1]);
+    }
+
+    expect(uniqueEdges).toHaveLength(16);
+    for (const gap of gaps) {
+      expect(gap).toBeGreaterThan(3.0);
+    }
+
+    geo.dispose();
+  });
+
   it('keystone rear sleeve opening steps upward by 3.4mm after the square section', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
     const geo = buildBracket(p);
@@ -483,7 +535,31 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone sleeve raised top wall extends to the back of the faceplate', () => {
+  it('keystone rear sleeve opening starts at 0.7mm depth', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    let stepStartMaxY = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (Math.abs(Math.abs(x) - 7.4) < 0.1 && Math.abs(z - 0.7) < 0.1) {
+        if (y > 8.0 && y < 12.0) {
+          stepStartMaxY = Math.max(stepStartMaxY, y);
+        }
+      }
+    }
+
+    expect(stepStartMaxY).toBeCloseTo(11.5, 0.5);
+
+    geo.dispose();
+  });
+
+  it('keystone sleeve raised top wall extends through the faceplate back', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
     const geo = buildBracket(p);
     const pos = geo.getAttribute('position');
@@ -495,24 +571,24 @@ describe('buildBracket — keystone mode', () => {
       const y = pos.getY(i);
       const z = pos.getZ(i);
 
-      if (Math.abs(Math.abs(x) - 10.57) < 0.1 && Math.abs(z - p.faceplateDepth) < 0.1) {
+      if (Math.abs(Math.abs(x) - 8.9) < 0.1 && Math.abs(z - p.faceplateDepth) < 0.1) {
         if (y > 10.0 && y < 15.0) {
           sleeveTopAtFaceplateBack = Math.max(sleeveTopAtFaceplateBack, y);
         }
       }
     }
 
-    expect(sleeveTopAtFaceplateBack).toBeCloseTo(14.67, 0.5);
+    expect(sleeveTopAtFaceplateBack).toBeCloseTo(13.0, 0.5);
 
     geo.dispose();
   });
 
-  it('keystone sleeve has a 10.7mm by 2mm vertical cutout at the step depth', () => {
+  it('keystone sleeve has a 10.7mm by 3.17mm vertical cutout at the step depth', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
     const geo = buildBracket(p);
     const pos = geo.getAttribute('position');
 
-    let slotMinZ = Infinity, slotMaxZ = -Infinity;
+    let slotBackZ = -Infinity;
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
@@ -520,13 +596,11 @@ describe('buildBracket — keystone mode', () => {
       const z = pos.getZ(i);
 
       if (Math.abs(Math.abs(x) - 5.35) < 0.1 && y > 11.0 && z > 6.0 && z < 9.0) {
-        slotMinZ = Math.min(slotMinZ, z);
-        slotMaxZ = Math.max(slotMaxZ, z);
+        slotBackZ = Math.max(slotBackZ, z);
       }
     }
 
-    expect(slotMinZ).toBeCloseTo(6.4, 0.5);
-    expect(slotMaxZ).toBeCloseTo(8.4, 0.5);
+    expect(slotBackZ).toBeCloseTo(8.4, 0.5);
 
     geo.dispose();
   });
