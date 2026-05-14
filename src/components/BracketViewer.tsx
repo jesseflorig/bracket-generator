@@ -49,6 +49,14 @@ function CameraControls({ camDist, shelfDepth, faceplateDepth, isKeystone }: { c
   const animating = useRef(false);
   const destPosition = useRef(new THREE.Vector3());
   const destTarget = useRef(new THREE.Vector3());
+  const defaultPosition = useMemo(
+    () => new THREE.Vector3(camDist * 0.6, camDist * 0.4, camDist),
+    [camDist]
+  );
+  const secondaryPosition = useMemo(
+    () => new THREE.Vector3(camDist, camDist * 0.4, -camDist * 0.6),
+    [camDist]
+  );
 
   useFrame(() => {
     if (!animating.current || !controlsRef.current) return;
@@ -71,13 +79,16 @@ function CameraControls({ camDist, shelfDepth, faceplateDepth, isKeystone }: { c
       if (e.code !== 'Space') return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       e.preventDefault();
-      destPosition.current.set(camDist * 0.6, camDist * 0.4, camDist);
+      const isDefaultView =
+        camera.position.distanceTo(defaultPosition) < 0.5 &&
+        (!controlsRef.current || controlsRef.current.target.distanceTo(target) < 0.5);
+      destPosition.current.copy(isDefaultView ? secondaryPosition : defaultPosition);
       destTarget.current.copy(target);
       animating.current = true;
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [camDist, target]);
+  }, [camera, defaultPosition, secondaryPosition, target]);
 
   return (
     <OrbitControls
