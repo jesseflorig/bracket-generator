@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+import { useState } from 'react';
 import { UnitSystem, fromMm, toMm } from '../units/convert';
 import { ValidationMessage } from './ValidationMessage';
 
@@ -27,11 +29,18 @@ export function DimensionSlider({
   unitSystem,
   error,
 }: DimensionSliderProps) {
+  const [isDragging, setIsDragging] = useState(false);
   const displayMin = isUnitless ? minMm : fromMm(minMm, unitSystem);
   const displayMax = isUnitless ? maxMm : fromMm(maxMm, unitSystem);
   const displayValue = isUnitless ? valueMm : fromMm(valueMm, unitSystem);
   const displayStep = step ?? (isUnitless || isInteger ? 1 : unitSystem === 'in' ? 0.05 : 0.5);
   const unitLabel = isUnitless ? '' : unitSystem;
+  const sliderValue = isInteger ? Math.round(displayValue) : displayValue;
+  const sliderSpan = displayMax - displayMin;
+  const sliderProgress = sliderSpan > 0
+    ? Math.min(100, Math.max(0, ((sliderValue - displayMin) / sliderSpan) * 100))
+    : 0;
+  const sliderStyle = { '--slider-progress': `${sliderProgress}%` } as CSSProperties;
 
   const handleChange = (raw: number) => {
     const clamped = Math.min(displayMax, Math.max(displayMin, raw));
@@ -59,15 +68,25 @@ export function DimensionSlider({
           )}
         </div>
       </div>
-      <input
-        type="range"
-        min={displayMin}
-        max={displayMax}
-        step={displayStep}
-        value={isInteger ? Math.round(displayValue) : displayValue}
-        onChange={(e) => handleChange(parseFloat(e.target.value))}
-        className="w-full"
-      />
+      <div className={`slider-shell ${isDragging ? 'slider-shell--dragging' : ''}`} style={sliderStyle}>
+        <div className="slider-track" aria-hidden="true">
+          <div className="slider-fill" />
+          <div className="slider-thumb" />
+        </div>
+        <input
+          type="range"
+          min={displayMin}
+          max={displayMax}
+          step={displayStep}
+          value={sliderValue}
+          onChange={(e) => handleChange(parseFloat(e.target.value))}
+          onPointerDown={() => setIsDragging(true)}
+          onPointerUp={() => setIsDragging(false)}
+          onPointerCancel={() => setIsDragging(false)}
+          onBlur={() => setIsDragging(false)}
+          className="slider-control"
+        />
+      </div>
       <ValidationMessage message={error} />
     </div>
   );

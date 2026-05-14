@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BracketParams, DEFAULT_PARAMS } from '../models/bracketParams';
+import { BracketParams, DEFAULT_PARAMS, constrainShelfParams } from '../models/bracketParams';
 import { UnitSystem } from '../units/convert';
 import {
   RackProfile,
@@ -38,22 +38,25 @@ interface AppState {
 }
 
 export const useBracketStore = create<AppState>((set, get) => ({
-  params: { ...DEFAULT_PARAMS, ...initialActiveProfile.params },
+  params: constrainShelfParams({ ...DEFAULT_PARAMS, ...initialActiveProfile.params }),
   unitSystem: 'mm',
   rackProfiles: initialProfiles,
   activeProfileId: initialActiveId,
 
   setParam: (key, value) =>
-    set((state) => ({ params: { ...state.params, [key]: value } })),
+    set((state) => {
+      const next = { ...state.params, [key]: value };
+      return { params: constrainShelfParams(next, key) };
+    }),
   setUnitSystem: (unit) => set({ unitSystem: unit }),
-  resetToDefaults: () => set({ params: DEFAULT_PARAMS }),
+  resetToDefaults: () => set({ params: constrainShelfParams(DEFAULT_PARAMS) }),
 
   setActiveProfile: (id) => {
     const { rackProfiles, params } = get();
     const profile = rackProfiles.find((p) => p.id === id);
     if (!profile) return;
     saveActiveProfileIdToStorage(id);
-    set({ activeProfileId: id, params: { ...params, ...profile.params } });
+    set({ activeProfileId: id, params: constrainShelfParams({ ...params, ...profile.params }) });
   },
 
   upsertRackProfile: (id, name, profileParams) => {
@@ -76,7 +79,7 @@ export const useBracketStore = create<AppState>((set, get) => ({
     set({
       rackProfiles: newProfiles,
       activeProfileId: finalId,
-      params: { ...params, ...profileParams },
+      params: constrainShelfParams({ ...params, ...profileParams }),
     });
   },
 
@@ -89,7 +92,11 @@ export const useBracketStore = create<AppState>((set, get) => ({
     if (activeProfileId === id) {
       const fallback = newProfiles[0];
       saveActiveProfileIdToStorage(fallback.id);
-      set({ rackProfiles: newProfiles, activeProfileId: fallback.id, params: { ...params, ...fallback.params } });
+      set({
+        rackProfiles: newProfiles,
+        activeProfileId: fallback.id,
+        params: constrainShelfParams({ ...params, ...fallback.params }),
+      });
     } else {
       set({ rackProfiles: newProfiles });
     }

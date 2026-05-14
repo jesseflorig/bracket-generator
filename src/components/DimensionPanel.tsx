@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { useBracketStore } from '../store/bracketStore';
-import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
+import {
+  bracketParamsSchema,
+  BracketParams,
+  maxCutoutHeightForFaceplate,
+  maxCutoutWidthForRack,
+  maxShelfCountForRack,
+  maxShelfWallThicknessForRack,
+  shelfTotalWidth,
+} from '../models/bracketParams';
 import { faceplateWidth, keystoneExteriorWidth } from '../geometry/bracket';
 import { DimensionSlider } from './DimensionSlider';
 import { UnitToggle } from './UnitToggle';
@@ -70,11 +78,13 @@ export function DimensionPanel() {
   const errors = flattenZodErrors(params);
 
   const fw = faceplateWidth(params);
-  const totalShelfWidth = params.shelfCount > 0 
-    ? (params.shelfCount * params.cutoutWidth) + ((params.shelfCount + 1) * params.shelfWallThickness)
-    : 0;
+  const totalShelfWidth = shelfTotalWidth(params);
   const shelfWidthPercent = params.rackWidth > 0 ? (totalShelfWidth / params.rackWidth) * 100 : 0;
   const widthBudgetLabel = `${shelfWidthPercent.toFixed(2)}%`;
+  const maxShelfCount = maxShelfCountForRack(params);
+  const maxCutoutWidth = maxCutoutWidthForRack(params);
+  const maxCutoutHeight = maxCutoutHeightForFaceplate(params);
+  const maxShelfWallThickness = maxShelfWallThicknessForRack(params);
   const totalKeystoneExteriorWidth = keystoneExteriorWidth(params);
   const keystoneWidthPercent = params.rackWidth > 0 ? (totalKeystoneExteriorWidth / params.rackWidth) * 100 : 0;
   const keystoneWidthBudgetLabel = `${keystoneWidthPercent.toFixed(2)}%`;
@@ -212,7 +222,7 @@ export function DimensionPanel() {
             valueMm={params.shelfCount}
             onChange={(v) => handleChange('shelfCount', v)}
             minMm={0}
-            maxMm={10}
+            maxMm={maxShelfCount}
             isUnitless
             isInteger
             unitSystem={unitSystem}
@@ -223,7 +233,7 @@ export function DimensionPanel() {
             valueMm={params.cutoutWidth}
             onChange={(v) => handleChange('cutoutWidth', v)}
             minMm={0}
-            maxMm={500}
+            maxMm={maxCutoutWidth}
             unitSystem={unitSystem}
             error={errors.cutoutWidth}
           />
@@ -232,7 +242,7 @@ export function DimensionPanel() {
             valueMm={params.cutoutHeight}
             onChange={(v) => handleChange('cutoutHeight', v)}
             minMm={0}
-            maxMm={200}
+            maxMm={maxCutoutHeight}
             unitSystem={unitSystem}
             error={errors.cutoutHeight}
           />
@@ -255,7 +265,7 @@ export function DimensionPanel() {
             valueMm={params.shelfWallThickness}
             onChange={(v) => handleChange('shelfWallThickness', v)}
             minMm={1.0}
-            maxMm={6.35}
+            maxMm={maxShelfWallThickness}
             unitSystem={unitSystem}
             error={errors.shelfWallThickness}
           />

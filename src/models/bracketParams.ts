@@ -124,6 +124,110 @@ export const bracketParamsSchema = z
 
 export type BracketParams = z.infer<typeof bracketParamsSchema>;
 
+export type ShelfConstraintKey = keyof BracketParams;
+
+export const SHELF_LIMITS = {
+  countMin: 0,
+  countMax: 10,
+  widthMin: 0,
+  widthMax: 500,
+  heightMin: 0,
+  heightMax: 200,
+  wallThicknessMin: 1.0,
+  wallThicknessMax: 6.35,
+} as const;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function clampShelfCount(value: number): number {
+  return Math.round(clamp(value, SHELF_LIMITS.countMin, SHELF_LIMITS.countMax));
+}
+
+export function shelfTotalWidth(p: Pick<BracketParams, 'rackWidth' | 'shelfCount' | 'cutoutWidth' | 'shelfWallThickness'>): number {
+  if (p.shelfCount <= 0) return 0;
+  return p.shelfCount * p.cutoutWidth + (p.shelfCount + 1) * p.shelfWallThickness;
+}
+
+export function maxShelfCountForRack(
+  p: Pick<BracketParams, 'rackWidth' | 'cutoutWidth' | 'shelfWallThickness'>
+): number {
+  const denominator = p.cutoutWidth + p.shelfWallThickness;
+  if (denominator <= 0) return SHELF_LIMITS.countMax;
+  return clampShelfCount(Math.floor((p.rackWidth - p.shelfWallThickness) / denominator));
+}
+
+export function maxCutoutWidthForRack(
+  p: Pick<BracketParams, 'rackWidth' | 'shelfCount' | 'shelfWallThickness'>
+): number {
+  if (p.shelfCount <= 0) return SHELF_LIMITS.widthMax;
+  const maxWidth = (p.rackWidth - (p.shelfCount + 1) * p.shelfWallThickness) / p.shelfCount;
+  return clamp(maxWidth, SHELF_LIMITS.widthMin, SHELF_LIMITS.widthMax);
+}
+
+export function maxShelfWallThicknessForRack(
+  p: Pick<BracketParams, 'rackWidth' | 'shelfCount' | 'cutoutWidth'>
+): number {
+  if (p.shelfCount <= 0) return SHELF_LIMITS.wallThicknessMax;
+  const maxThickness = (p.rackWidth - p.shelfCount * p.cutoutWidth) / (p.shelfCount + 1);
+  return clamp(maxThickness, SHELF_LIMITS.wallThicknessMin, SHELF_LIMITS.wallThicknessMax);
+}
+
+export function maxCutoutHeightForFaceplate(
+  p: Pick<BracketParams, 'faceplateHeight' | 'shelfWallThickness'>
+): number {
+  return clamp(
+    p.faceplateHeight - 2 * p.shelfWallThickness,
+    SHELF_LIMITS.heightMin,
+    SHELF_LIMITS.heightMax
+  );
+}
+
+export function constrainShelfParams(params: BracketParams, changedKey?: ShelfConstraintKey): BracketParams {
+  if (params.mode !== 'shelf') return params;
+
+  const next: BracketParams = {
+    ...params,
+    shelfCount: clampShelfCount(params.shelfCount),
+    cutoutWidth: clamp(params.cutoutWidth, SHELF_LIMITS.widthMin, SHELF_LIMITS.widthMax),
+    cutoutHeight: clamp(params.cutoutHeight, SHELF_LIMITS.heightMin, SHELF_LIMITS.heightMax),
+    shelfWallThickness: clamp(
+      params.shelfWallThickness,
+      SHELF_LIMITS.wallThicknessMin,
+      SHELF_LIMITS.wallThicknessMax
+    ),
+  };
+
+  if (next.shelfCount <= 0) return next;
+
+  if (changedKey === 'shelfCount') {
+    next.shelfCount = Math.min(next.shelfCount, maxShelfCountForRack(next));
+  } else if (changedKey === 'cutoutWidth') {
+    next.cutoutWidth = Math.min(next.cutoutWidth, maxCutoutWidthForRack(next));
+  } else if (changedKey === 'shelfWallThickness') {
+    next.shelfWallThickness = Math.min(next.shelfWallThickness, maxShelfWallThicknessForRack(next));
+  } else {
+    next.cutoutWidth = Math.min(next.cutoutWidth, maxCutoutWidthForRack(next));
+    next.shelfWallThickness = Math.min(next.shelfWallThickness, maxShelfWallThicknessForRack(next));
+    next.shelfCount = Math.min(next.shelfCount, maxShelfCountForRack(next));
+  }
+
+  if (shelfTotalWidth(next) > next.rackWidth && changedKey !== 'cutoutWidth') {
+    next.cutoutWidth = Math.min(next.cutoutWidth, maxCutoutWidthForRack(next));
+  }
+  if (shelfTotalWidth(next) > next.rackWidth && changedKey !== 'shelfWallThickness') {
+    next.shelfWallThickness = Math.min(next.shelfWallThickness, maxShelfWallThicknessForRack(next));
+  }
+  if (shelfTotalWidth(next) > next.rackWidth && changedKey !== 'shelfCount') {
+    next.shelfCount = Math.min(next.shelfCount, maxShelfCountForRack(next));
+  }
+
+  next.cutoutHeight = Math.min(next.cutoutHeight, maxCutoutHeightForFaceplate(next));
+
+  return next;
+}
+
 export const DEFAULT_PARAMS: BracketParams = {
   rackWidth: 165.1,          // 6.5"
   railWidth: 25.4,           // 1.0"

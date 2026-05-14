@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useBracketStore } from '../store/bracketStore';
 import { RackProfileParams, VANLAB_ID, extractRackProfileParams } from '../models/rackProfile';
-import { bracketParamsSchema, BracketParams } from '../models/bracketParams';
+import { bracketParamsSchema, BracketParams, constrainShelfParams } from '../models/bracketParams';
 import { DimensionSlider } from './DimensionSlider';
 import { UnitToggle } from './UnitToggle';
 
@@ -17,7 +17,7 @@ const RACK_FIELDS: (keyof RackProfileParams)[] = [
 ];
 
 function validateDraft(draft: RackProfileParams, baseParams: BracketParams): RackErrors {
-  const merged = { ...baseParams, ...draft };
+  const merged = constrainShelfParams({ ...baseParams, ...draft }, 'rackWidth');
   const result = bracketParamsSchema.safeParse(merged);
   if (result.success) return {};
   const fieldErrors = result.error.flatten().fieldErrors;
