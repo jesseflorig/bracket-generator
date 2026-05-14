@@ -32,7 +32,7 @@ function ReadOnlyField({
   derived?: boolean;
 }) {
   const displayed = fromMm(valueMm, unitSystem).toFixed(2);
-  const unit = unitSystem === 'in' ? '"' : 'mm';
+  const unit = unitSystem === 'in' ? 'in' : 'mm';
   return (
     <div className="flex items-center justify-between py-1 text-xs text-zinc-500">
       <span>{label}</span>
