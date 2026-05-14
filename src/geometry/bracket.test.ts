@@ -441,13 +441,13 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone mode adds a 10mm sleeve with a top step at 0.7mm depth', () => {
+  it('keystone mode adds a 10mm sleeve with 2mm top and bottom rear extensions', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const };
     const geo = buildBracket(p);
     geo.computeBoundingBox();
     const size = new Vector3();
     (geo.boundingBox as Box3).getSize(size);
-    expect(size.z).toBeCloseTo(10.0, 3);
+    expect(size.z).toBeCloseTo(12.0, 3);
     geo.dispose();
   });
 
@@ -583,24 +583,67 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone sleeve has an 11.5mm by 3.17mm vertical cutout at the step depth', () => {
+  it('keystone sleeve top and bottom rear extensions are rounded 2mm around the y axis', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
     const geo = buildBracket(p);
     const pos = geo.getAttribute('position');
 
-    let slotBackZ = -Infinity;
+    let topFrontMaxAbsX = 0;
+    let bottomFrontMaxAbsX = 0;
+    let topRearMaxAbsX = 0;
+    let bottomRearMaxAbsX = 0;
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
       const z = pos.getZ(i);
 
-      if (Math.abs(Math.abs(x) - 5.75) < 0.1 && y > 11.0 && z > 6.0 && z < 9.0) {
-        slotBackZ = Math.max(slotBackZ, z);
+      if (Math.abs(z - 10.0) < 0.1 && y > 11.0 && y < 14.0) {
+        topFrontMaxAbsX = Math.max(topFrontMaxAbsX, Math.abs(x));
+      }
+      if (Math.abs(z - 10.0) < 0.1 && y > -10.5 && y < -8.0) {
+        bottomFrontMaxAbsX = Math.max(bottomFrontMaxAbsX, Math.abs(x));
+      }
+      if (Math.abs(z - 12.0) < 0.01 && y > 11.0 && y < 14.0) {
+        topRearMaxAbsX = Math.max(topRearMaxAbsX, Math.abs(x));
+      }
+      if (Math.abs(z - 12.0) < 0.01 && y > -10.5 && y < -8.0) {
+        bottomRearMaxAbsX = Math.max(bottomRearMaxAbsX, Math.abs(x));
       }
     }
 
-    expect(slotBackZ).toBeCloseTo(8.4, 0.5);
+    expect(topFrontMaxAbsX).toBeGreaterThan(8.8);
+    expect(topFrontMaxAbsX).toBeLessThan(9.0);
+    expect(bottomFrontMaxAbsX).toBeGreaterThan(8.8);
+    expect(bottomFrontMaxAbsX).toBeLessThan(9.0);
+    expect(topRearMaxAbsX).toBeGreaterThan(6.8);
+    expect(topRearMaxAbsX).toBeLessThan(7.0);
+    expect(bottomRearMaxAbsX).toBeGreaterThan(6.8);
+    expect(bottomRearMaxAbsX).toBeLessThan(7.0);
+
+    geo.dispose();
+  });
+
+  it('keystone sleeve has a 12.4mm by 3.17mm vertical cutout ending at 8.5mm', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    let slotMinZ = Infinity, slotMaxZ = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (Math.abs(Math.abs(x) - 6.2) < 0.1 && y > 11.0 && z > 5.0 && z < 9.0) {
+        slotMinZ = Math.min(slotMinZ, z);
+        slotMaxZ = Math.max(slotMaxZ, z);
+      }
+    }
+
+    expect(slotMinZ).toBeCloseTo(5.33, 0.5);
+    expect(slotMaxZ).toBeCloseTo(8.5, 0.5);
 
     geo.dispose();
   });

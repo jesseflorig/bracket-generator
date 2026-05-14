@@ -206,11 +206,13 @@ const SLOT_DEPTH_MM = 2.032; // 0.08"
 const KEYSTONE_W = 14.8;
 const KEYSTONE_H = 16.2;
 const KEYSTONE_SLEEVE_DEPTH = 10.0;
+const KEYSTONE_SLEEVE_END_EXTENSION = 2.0;
+const KEYSTONE_SLEEVE_END_ROUND = 2.0;
 const KEYSTONE_TOP_STEP = 3.4;
 const KEYSTONE_TOP_STEP_START = 0.7;
 const KEYSTONE_SLEEVE_WALL = 1.5;
-const KEYSTONE_VERTICAL_CUTOUT_W = 11.5;
-const KEYSTONE_VERTICAL_CUTOUT_START = 5.23;
+const KEYSTONE_VERTICAL_CUTOUT_W = 12.4;
+const KEYSTONE_VERTICAL_CUTOUT_START = 5.33;
 const KEYSTONE_VERTICAL_CUTOUT_DEPTH = 3.17;
 
 function keystoneCenters(p: BracketParams, faceplateW: number): number[] {
@@ -231,6 +233,35 @@ export function keystoneExteriorWidth(p: BracketParams): number {
   const centers = keystoneCenters(p, faceplateWidth(p));
   if (centers.length === 0) return 0;
   return centers[centers.length - 1] - centers[0] + KEYSTONE_W + 2 * KEYSTONE_SLEEVE_WALL;
+}
+
+function roundedRearExtensionProfile(width: number, depth: number, radius: number, segs = 12): SimplePolygon {
+  const halfW = width / 2;
+  const r = Math.min(radius, depth, halfW);
+  const pts: [number, number][] = [[-halfW, 0], [halfW, 0]];
+
+  const pushUnique = (pt: [number, number]) => {
+    const prev = pts[pts.length - 1];
+    const first = pts[0];
+    if (Math.hypot(pt[0] - prev[0], pt[1] - prev[1]) < 1e-6) return;
+    if (Math.hypot(pt[0] - first[0], pt[1] - first[1]) < 1e-6) return;
+    pts.push(pt);
+  };
+
+  const rightCx = halfW - r;
+  const leftCx = -halfW + r;
+  const cy = depth - r;
+
+  for (let i = 1; i <= segs; i++) {
+    const a = (i / segs) * (Math.PI / 2);
+    pushUnique([rightCx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  for (let i = 1; i <= segs; i++) {
+    const a = Math.PI / 2 + (i / segs) * (Math.PI / 2);
+    pushUnique([leftCx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+
+  return pts;
 }
 
 export function buildBracket(p: BracketParams): THREE.BufferGeometry {
@@ -258,12 +289,25 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
 
     const sleeveW = KEYSTONE_W + 2 * KEYSTONE_SLEEVE_WALL;
     const sleeveH = KEYSTONE_H + KEYSTONE_TOP_STEP + 2 * KEYSTONE_SLEEVE_WALL;
+    const sleeveExtensionProfile = new CrossSection([
+      roundedRearExtensionProfile(sleeveW, KEYSTONE_SLEEVE_END_EXTENSION, KEYSTONE_SLEEVE_END_ROUND),
+    ]).extrude(KEYSTONE_SLEEVE_WALL).rotate([90, 0, 0]);
+    const sleeveTopWallOuterY = KEYSTONE_H / 2 + KEYSTONE_TOP_STEP + KEYSTONE_SLEEVE_WALL;
+    const sleeveBottomWallInnerY = -KEYSTONE_H / 2;
 
     if (sleeveDepth > 0) {
       for (const kx of centers) {
         parts.push(
           Manifold.cube([sleeveW, sleeveH, sleeveDepth], true)
             .translate([kx, KEYSTONE_TOP_STEP / 2, fd + sleeveDepth / 2])
+        );
+        parts.push(
+          sleeveExtensionProfile
+            .translate([kx, sleeveTopWallOuterY, KEYSTONE_SLEEVE_DEPTH])
+        );
+        parts.push(
+          sleeveExtensionProfile
+            .translate([kx, sleeveBottomWallInnerY, KEYSTONE_SLEEVE_DEPTH])
         );
       }
     }
