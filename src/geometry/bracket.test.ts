@@ -583,7 +583,7 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone sleeve has a 10.7mm by 3.17mm vertical cutout at the step depth', () => {
+  it('keystone sleeve has an 11.5mm by 3.17mm vertical cutout at the step depth', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
     const geo = buildBracket(p);
     const pos = geo.getAttribute('position');
@@ -595,7 +595,7 @@ describe('buildBracket — keystone mode', () => {
       const y = pos.getY(i);
       const z = pos.getZ(i);
 
-      if (Math.abs(Math.abs(x) - 5.35) < 0.1 && y > 11.0 && z > 6.0 && z < 9.0) {
+      if (Math.abs(Math.abs(x) - 5.75) < 0.1 && y > 11.0 && z > 6.0 && z < 9.0) {
         slotBackZ = Math.max(slotBackZ, z);
       }
     }
