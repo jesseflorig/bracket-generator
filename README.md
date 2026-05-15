@@ -6,13 +6,13 @@ A browser-based 3D bracket generator for designing rack-mount shelf brackets and
 
 ## Features
 
-- Interactive Three.js preview with orbit, zoom, pan, and reset controls
+- Interactive Three.js preview with orbit, zoom, pan, and Space-triggered view toggle
 - Manifold-based bracket geometry for clean solid models
 - Rack profiles with editable rack width, rail width, mounting holes, rail slot width, faceplate depth, and corner radius
 - Unit toggle for millimeters and inches
 - Configurable faceplate height, cutout size, shelf depth, and shelf wall thickness
 - Dual generation modes: **Shelf** (for holding devices) and **Keystone** (for patch panel cutouts)
-- **Keystone Mode**: Automatic distribution of standard 14.8 x 16.2mm cutouts with automatic 1.6mm rear recess for secure snap-fit
+- **Keystone Mode**: Configurable 1-24 standard 14.8 x 16.2mm cutouts with automatic spacing, 10mm stepped jack sleeves, 1mm rear sleeve extensions, and sleeve relief cutouts
 - Shelf width readouts for rack width, shelf width, and width budget
 - Optional hex mesh cutouts on shelf side walls and floor panel
 - STL and 3MF export for slicers
@@ -34,20 +34,22 @@ A browser-based 3D bracket generator for designing rack-mount shelf brackets and
 ### Prerequisites
 
 - Node.js v18+
-- npm
+- pnpm
 
 ### Installation
 
 Clone the repository and install dependencies:
 ```bash
-npm install
+pnpm install
 ```
+
+The project scripts also work with npm, but the repository lockfile and local docs use pnpm.
 
 ### Development
 
 Start the development server:
 ```bash
-npm run dev
+pnpm dev
 ```
 
 The application will be available at `http://localhost:5173`
@@ -56,19 +58,19 @@ The application will be available at `http://localhost:5173`
 
 Create a production build:
 ```bash
-npm run build
+pnpm build
 ```
 
 ### Testing
 
 Run tests:
 ```bash
-npm test -- --run
+pnpm test --run
 ```
 
 Run TypeScript checks:
 ```bash
-npm run typecheck
+pnpm typecheck
 ```
 
 ## Project Structure
@@ -87,10 +89,11 @@ src/
 ## Usage
 
 1. Choose or edit a rack profile.
-2. Set the faceplate, cutout, shelf, and hex mesh parameters in the side panel.
-3. Use the shelf readouts to compare shelf width against rack width.
-4. Inspect the model in the 3D viewer.
-5. Export the final bracket as STL or 3MF.
+2. Select **Shelf** or **Keystone** generation mode.
+3. In Shelf mode, set cutout, shelf, and hex mesh parameters, then use the shelf readouts to compare total shelf width against rack width.
+4. In Keystone mode, set keystone count, then use the exterior-width readouts to compare jack sleeve width against rack width.
+5. Inspect the model in the 3D viewer.
+6. Export the final bracket as STL or 3MF.
 
 ## Notes
 
