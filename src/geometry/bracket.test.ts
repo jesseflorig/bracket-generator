@@ -441,13 +441,13 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone mode adds a 10mm sleeve with 2mm top and bottom rear extensions', () => {
+  it('keystone mode adds a 10mm sleeve with 1mm top and bottom rear extensions', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const };
     const geo = buildBracket(p);
     geo.computeBoundingBox();
     const size = new Vector3();
     (geo.boundingBox as Box3).getSize(size);
-    expect(size.z).toBeCloseTo(12.0, 3);
+    expect(size.z).toBeCloseTo(11.0, 3);
     geo.dispose();
   });
 
@@ -583,7 +583,7 @@ describe('buildBracket — keystone mode', () => {
     geo.dispose();
   });
 
-  it('keystone sleeve top and bottom rear extensions are rounded 2mm around the y axis', () => {
+  it('keystone sleeve top and bottom rear extensions are rounded 1mm around the y axis', () => {
     const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, keystoneCount: 1 };
     const geo = buildBracket(p);
     const pos = geo.getAttribute('position');
@@ -604,10 +604,10 @@ describe('buildBracket — keystone mode', () => {
       if (Math.abs(z - 10.0) < 0.1 && y > -10.5 && y < -8.0) {
         bottomFrontMaxAbsX = Math.max(bottomFrontMaxAbsX, Math.abs(x));
       }
-      if (Math.abs(z - 12.0) < 0.01 && y > 11.0 && y < 14.0) {
+      if (Math.abs(z - 11.0) < 0.01 && y > 11.0 && y < 14.0) {
         topRearMaxAbsX = Math.max(topRearMaxAbsX, Math.abs(x));
       }
-      if (Math.abs(z - 12.0) < 0.01 && y > -10.5 && y < -8.0) {
+      if (Math.abs(z - 11.0) < 0.01 && y > -10.5 && y < -8.0) {
         bottomRearMaxAbsX = Math.max(bottomRearMaxAbsX, Math.abs(x));
       }
     }
@@ -616,10 +616,10 @@ describe('buildBracket — keystone mode', () => {
     expect(topFrontMaxAbsX).toBeLessThan(9.0);
     expect(bottomFrontMaxAbsX).toBeGreaterThan(8.8);
     expect(bottomFrontMaxAbsX).toBeLessThan(9.0);
-    expect(topRearMaxAbsX).toBeGreaterThan(6.8);
-    expect(topRearMaxAbsX).toBeLessThan(7.0);
-    expect(bottomRearMaxAbsX).toBeGreaterThan(6.8);
-    expect(bottomRearMaxAbsX).toBeLessThan(7.0);
+    expect(topRearMaxAbsX).toBeGreaterThan(7.8);
+    expect(topRearMaxAbsX).toBeLessThan(8.1);
+    expect(bottomRearMaxAbsX).toBeGreaterThan(7.8);
+    expect(bottomRearMaxAbsX).toBeLessThan(8.1);
 
     geo.dispose();
   });
