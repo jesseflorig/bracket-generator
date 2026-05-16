@@ -204,6 +204,15 @@ export function DimensionPanel() {
               derived={false}
             />
             <ReadOnlyTextField label="Width Budget" value={keystoneWidthBudgetLabel} />
+            <div className="flex items-center justify-between py-1">
+              <span className="text-xs text-zinc-300">CM5-PoE-BASE-A Shelf</span>
+              <input
+                type="checkbox"
+                checked={params.cm5PoeBaseShelf}
+                onChange={(e) => handleChange('cm5PoeBaseShelf', e.target.checked)}
+                className="w-3.5 h-3.5 accent-blue-500 cursor-pointer"
+              />
+            </div>
             <div className="p-2 bg-zinc-800/50 rounded border border-zinc-700/50">
               <p className="text-[10px] text-zinc-500 leading-relaxed">
                 Standard 14.8 x 16.2mm cutouts with a 10mm stepped jack sleeve.

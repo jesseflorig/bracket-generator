@@ -30,6 +30,7 @@ export const bracketParamsSchema = z
     // Mode
     mode: z.enum(['shelf', 'keystone']).default('shelf'),
     keystoneCount: z.number().int().min(1).max(24).default(8),
+    cm5PoeBaseShelf: z.boolean().default(false),
   })
   .superRefine((d, ctx) => {
     const fw = d.rackWidth + 2 * d.railWidth;
@@ -249,6 +250,7 @@ export const DEFAULT_PARAMS: BracketParams = {
   hexMeshFloor: false,
   mode: 'shelf',
   keystoneCount: 8,
+  cm5PoeBaseShelf: false,
 };
 
 export interface ExportPayload {

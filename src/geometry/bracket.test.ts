@@ -647,6 +647,92 @@ describe('buildBracket — keystone mode', () => {
 
     geo.dispose();
   });
+
+  it('adds the optional CM5-PoE-BASE-A shelf behind the faceplate', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, cm5PoeBaseShelf: true };
+    const geo = buildBracket(p);
+    geo.computeBoundingBox();
+
+    expect((geo.boundingBox as Box3).max.z).toBeCloseTo(p.faceplateDepth + 165, 2);
+
+    const pos = geo.getAttribute('position');
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const z = pos.getZ(i);
+      if (z > 20) {
+        minX = Math.min(minX, pos.getX(i));
+        maxX = Math.max(maxX, pos.getX(i));
+        minY = Math.min(minY, pos.getY(i));
+        maxY = Math.max(maxY, pos.getY(i));
+      }
+    }
+
+    expect(maxX - minX).toBeCloseTo(161, 2);
+    expect(minY).toBeCloseTo(-p.faceplateHeight / 2, 2);
+    expect(maxY).toBeCloseTo(-p.faceplateHeight / 2 + 20, 2);
+
+    geo.dispose();
+  });
+
+  it('adds default hex mesh cutouts to the CM5-PoE-BASE-A shelf side walls', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, cm5PoeBaseShelf: true };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    let interiorSideWallVertices = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const onSideWall = Math.abs(Math.abs(x) - 80.5) < 0.1 || Math.abs(Math.abs(x) - 78.5) < 0.1;
+      const inCm5WallPanel =
+        y > -p.faceplateHeight / 2 + 2 &&
+        y < -p.faceplateHeight / 2 + 18 &&
+        z > p.faceplateDepth + 2 &&
+        z < p.faceplateDepth + 163;
+
+      if (onSideWall && inCm5WallPanel) {
+        interiorSideWallVertices += 1;
+      }
+    }
+
+    expect(interiorSideWallVertices).toBeGreaterThan(0);
+
+    geo.dispose();
+  });
+
+  it('cuts the CM5-PoE-BASE-A shelf floor from the faceplate back to 70mm depth', () => {
+    const p = { ...DEFAULT_PARAMS, mode: 'keystone' as const, cm5PoeBaseShelf: true };
+    const geo = buildBracket(p);
+    const pos = geo.getAttribute('position');
+
+    const floorTopY = -p.faceplateHeight / 2 + 2;
+    const cutoutRearZ = p.faceplateDepth + 70;
+    let rearCutoutEdgeVertices = 0;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (
+        Math.abs(y - floorTopY) < 0.1 &&
+        Math.abs(z - cutoutRearZ) < 0.1 &&
+        Math.abs(x) > 78.4 &&
+        Math.abs(x) < 78.6
+      ) {
+        rearCutoutEdgeVertices += 1;
+      }
+    }
+
+    geo.computeBoundingBox();
+    expect(rearCutoutEdgeVertices).toBeGreaterThan(0);
+    expect((geo.boundingBox as Box3).max.z).toBeCloseTo(p.faceplateDepth + 165, 2);
+
+    geo.dispose();
+  });
 });
 
 describe('bracketParamsSchema — keystone validation', () => {
@@ -664,6 +750,15 @@ describe('bracketParamsSchema — keystone validation', () => {
     const result = bracketParamsSchema.safeParse({
       ...DEFAULT_PARAMS,
       mode: 'keystone',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts the optional CM5-PoE-BASE-A shelf flag', () => {
+    const result = bracketParamsSchema.safeParse({
+      ...DEFAULT_PARAMS,
+      mode: 'keystone',
+      cm5PoeBaseShelf: true,
     });
     expect(result.success).toBe(true);
   });

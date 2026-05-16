@@ -214,6 +214,11 @@ const KEYSTONE_SLEEVE_WALL = 1.5;
 const KEYSTONE_VERTICAL_CUTOUT_W = 12.4;
 const KEYSTONE_VERTICAL_CUTOUT_START = 5.33;
 const KEYSTONE_VERTICAL_CUTOUT_DEPTH = 3.17;
+const CM5_POE_BASE_SHELF_W = 161;
+const CM5_POE_BASE_SHELF_DEPTH = 165;
+const CM5_POE_BASE_SHELF_THICKNESS = 2;
+const CM5_POE_BASE_SHELF_WALL_H = 20;
+const CM5_POE_BASE_FLOOR_CUTOUT_DEPTH = 70;
 
 function keystoneCenters(p: BracketParams, faceplateW: number): number[] {
   const kCount = p.keystoneCount;
@@ -355,6 +360,46 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
     }
   }
 
+  // --- Optional CM5-PoE-BASE-A tray for keystone panels ---
+  if (isKeystoneMode && p.cm5PoeBaseShelf) {
+    const shelfBottomY = -fh / 2;
+    const shelfCenterZ = fd + CM5_POE_BASE_SHELF_DEPTH / 2;
+    const shelfHalfW = CM5_POE_BASE_SHELF_W / 2;
+
+    parts.push(
+      Manifold.cube(
+        [CM5_POE_BASE_SHELF_W, CM5_POE_BASE_SHELF_THICKNESS, CM5_POE_BASE_SHELF_DEPTH],
+        true
+      ).translate([
+        0,
+        shelfBottomY + CM5_POE_BASE_SHELF_THICKNESS / 2,
+        shelfCenterZ,
+      ])
+    );
+
+    const wallCS = hexWallCrossSection(
+      CM5_POE_BASE_SHELF_DEPTH,
+      CM5_POE_BASE_SHELF_WALL_H,
+      p
+    );
+
+    for (const wallX of [
+      -shelfHalfW + CM5_POE_BASE_SHELF_THICKNESS / 2,
+      shelfHalfW - CM5_POE_BASE_SHELF_THICKNESS / 2,
+    ]) {
+      parts.push(
+        wallCS
+          .extrude(CM5_POE_BASE_SHELF_THICKNESS)
+          .rotate([0, -90, 0])
+          .translate([
+            wallX + CM5_POE_BASE_SHELF_THICKNESS / 2,
+            shelfBottomY + CM5_POE_BASE_SHELF_WALL_H / 2,
+            shelfCenterZ,
+          ])
+      );
+    }
+  }
+
   // --- Rail slot bumps ---
   const positions = holePositions(p);
   if (positions.length > 0) {
@@ -376,6 +421,22 @@ export function buildBracket(p: BracketParams): THREE.BufferGeometry {
 
   // Union all positive volumes
   let solid = Manifold.union(parts);
+
+  if (isKeystoneMode && p.cm5PoeBaseShelf) {
+    const cm5FloorCutout = Manifold.cube(
+      [
+        CM5_POE_BASE_SHELF_W - 2 * CM5_POE_BASE_SHELF_THICKNESS,
+        CM5_POE_BASE_SHELF_THICKNESS + 0.2,
+        CM5_POE_BASE_FLOOR_CUTOUT_DEPTH,
+      ],
+      true
+    ).translate([
+      0,
+      -fh / 2 + CM5_POE_BASE_SHELF_THICKNESS / 2,
+      fd + CM5_POE_BASE_FLOOR_CUTOUT_DEPTH / 2,
+    ]);
+    solid = solid.subtract(cm5FloorCutout);
+  }
 
   // --- Subtract cutout openings ---
   if (hasShelf) {

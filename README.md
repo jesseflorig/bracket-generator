@@ -13,6 +13,7 @@ A browser-based 3D bracket generator for designing rack-mount shelf brackets and
 - Configurable faceplate height, cutout size, shelf depth, and shelf wall thickness
 - Dual generation modes: **Shelf** (for holding devices) and **Keystone** (for patch panel cutouts)
 - **Keystone Mode**: Configurable 1-24 standard 14.8 x 16.2mm cutouts with automatic spacing, 10mm stepped jack sleeves, 1mm rear sleeve extensions, and sleeve relief cutouts
+- Optional CM5-PoE-BASE-A shelf in Keystone mode with a 161mm x 165mm tray, 2mm floor, and default hex-mesh 20mm side walls
 - Shelf width readouts for rack width, shelf width, and width budget
 - Optional hex mesh cutouts on shelf side walls and floor panel
 - STL and 3MF export for slicers
