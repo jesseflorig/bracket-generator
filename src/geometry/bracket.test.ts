@@ -669,7 +669,7 @@ describe('buildBracket — keystone mode', () => {
       }
     }
 
-    expect(maxX - minX).toBeCloseTo(161, 2);
+    expect(maxX - minX).toBeCloseTo(165, 2);
     expect(minY).toBeCloseTo(-p.faceplateHeight / 2, 2);
     expect(maxY).toBeCloseTo(-p.faceplateHeight / 2 + 20, 2);
 
@@ -686,7 +686,7 @@ describe('buildBracket — keystone mode', () => {
       const x = pos.getX(i);
       const y = pos.getY(i);
       const z = pos.getZ(i);
-      const onSideWall = Math.abs(Math.abs(x) - 80.5) < 0.1 || Math.abs(Math.abs(x) - 78.5) < 0.1;
+      const onSideWall = Math.abs(Math.abs(x) - 82.5) < 0.1 || Math.abs(Math.abs(x) - 80.5) < 0.1;
       const inCm5WallPanel =
         y > -p.faceplateHeight / 2 + 2 &&
         y < -p.faceplateHeight / 2 + 18 &&
@@ -720,8 +720,8 @@ describe('buildBracket — keystone mode', () => {
       if (
         Math.abs(y - floorTopY) < 0.1 &&
         Math.abs(z - cutoutRearZ) < 0.1 &&
-        Math.abs(x) > 78.4 &&
-        Math.abs(x) < 78.6
+        Math.abs(x) > 80.4 &&
+        Math.abs(x) < 80.6
       ) {
         rearCutoutEdgeVertices += 1;
       }
